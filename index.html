@@ -1,0 +1,530 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>TACTIS</title>
+<style>
+  :root {
+    --bg: #1b1f24;
+    --ground: #d8dccd;
+    --panel: #ffffff;
+    --ink: #14181d;
+    --muted: #6b7480;
+    --line: #e1e4e8;
+    --accent: #2d6cdf;
+    --danger: #c9372c;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --panel: #20262d; --ink: #e8ecf0; --muted: #97a1ad; --line: #333b44; }
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; overflow: hidden; background: var(--bg); color: var(--ink);
+    font-family: -apple-system, "Apple SD Gothic Neo", "Noto Sans KR", "Malgun Gothic", system-ui, sans-serif; }
+  #viewport { position: fixed; inset: 0; touch-action: none; overflow: hidden; cursor: grab; }
+  #viewport.dragging { cursor: grabbing; }
+  #grid { position: absolute; inset: 0; width: 100%; height: 100%; }
+  #units { position: absolute; left: 0; top: 0; }
+
+  .unit { position: absolute; left: 0; top: 0; cursor: pointer; }
+  .bld { position: absolute; left: 15%; top: 15%; width: 70%; height: 70%; background: #000; }
+  .unit.sel .bld { outline: 2px solid #ffb300; outline-offset: 2px; }
+  .hud { position: absolute; left: 50%; bottom: 85%; margin-bottom: 4px; transform: translateX(-50%);
+    display: flex; align-items: center; gap: 6px; white-space: nowrap; padding: 2px 6px;
+    background: rgba(255,255,255,.88); border: 1px solid rgba(0,0,0,.45); border-radius: 4px;
+    font-size: 12px; line-height: 1; color: #000; }
+  .hud svg { display: block; height: 22px; width: auto; }
+  .hud .nm { font-weight: 600; }
+  .hud .bar { width: 38px; height: 7px; background: #3a3f45; border-radius: 2px; overflow: hidden; }
+  .hud .bar i { display: block; height: 100%; }
+  .hud .pc { font-variant-numeric: tabular-nums; font-size: 11px; }
+  /* 축소 시에는 단대호만 */
+  #viewport.compact .hud { padding: 0; background: none; border: 0; }
+  #viewport.compact .hud .nm, #viewport.compact .hud .bar, #viewport.compact .hud .pc { display: none; }
+  #viewport.compact .hud svg { height: 18px; filter: drop-shadow(0 0 1px #fff); }
+
+  #bar { position: fixed; top: 0; left: 0; right: 0; display: flex; align-items: center; gap: 8px;
+    padding: 8px 12px; padding-top: max(8px, env(safe-area-inset-top)); pointer-events: none; }
+  #bar > * { pointer-events: auto; }
+  #bar h1 { margin: 0 auto 0 0; font-size: 15px; letter-spacing: .14em; color: #fff; text-shadow: 0 1px 3px #000; }
+  #bar .scale { color: #fff; font-size: 11px; text-shadow: 0 1px 3px #000; }
+  .btn { border: 1px solid var(--line); background: var(--panel); color: var(--ink); border-radius: 8px;
+    padding: 8px 12px; font: inherit; font-size: 14px; cursor: pointer; }
+  .btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .btn.danger { color: var(--danger); }
+  .btn.sm { padding: 4px 8px; font-size: 12px; }
+
+  #banner { position: fixed; left: 50%; top: 56px; transform: translateX(-50%); background: #ffb300; color: #000;
+    padding: 8px 14px; border-radius: 20px; font-size: 14px; display: none; gap: 10px; align-items: center; z-index: 5; }
+  #banner.on { display: flex; }
+
+  #sheet { position: fixed; left: 0; right: 0; bottom: 0; max-height: 72vh; display: flex; flex-direction: column;
+    background: var(--panel); border-radius: 16px 16px 0 0; box-shadow: 0 -6px 24px rgba(0,0,0,.35);
+    transform: translateY(105%); transition: transform .22s ease; z-index: 10;
+    max-width: 640px; margin: 0 auto; }
+  #sheet.open { transform: none; }
+  #sheet .grab { width: 40px; height: 4px; border-radius: 2px; background: var(--line); margin: 8px auto 0; flex: none; }
+  #sheet header { padding: 8px 16px 10px; border-bottom: 1px solid var(--line); flex: none; }
+  .title { display: flex; align-items: center; gap: 8px; font-size: 18px; font-weight: 700; }
+  .title svg { height: 30px; width: auto; }
+  .title .x { margin-left: auto; background: none; border: 0; font-size: 22px; color: var(--muted); cursor: pointer; }
+  .total { color: var(--muted); font-size: 14px; margin-top: 2px; }
+  #sheet .body { overflow-y: auto; padding: 8px 16px; flex: 1; }
+  .block { border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; margin: 8px 0; }
+  .block .row { display: flex; align-items: center; gap: 8px; }
+  .block .row b { font-weight: 600; }
+  .block .cnt { color: var(--muted); font-variant-numeric: tabular-nums; }
+  .block .acts { margin-left: auto; display: flex; gap: 4px; }
+  .block .eq { color: var(--muted); font-size: 13px; margin-top: 4px; }
+  .block .mini { height: 4px; background: var(--line); border-radius: 2px; margin-top: 8px; overflow: hidden; }
+  .block .mini i { display: block; height: 100%; }
+  .empty { color: var(--muted); font-size: 14px; text-align: center; padding: 14px 0; }
+  #sheet footer { display: flex; gap: 8px; padding: 10px 16px; padding-bottom: max(10px, env(safe-area-inset-bottom));
+    border-top: 1px solid var(--line); flex: none; flex-wrap: wrap; }
+  #sheet footer .grow { flex: 1; }
+
+  #dlgwrap { position: fixed; inset: 0; background: rgba(0,0,0,.5); display: none; align-items: center;
+    justify-content: center; z-index: 20; padding: 16px; }
+  #dlgwrap.on { display: flex; }
+  #dlg { background: var(--panel); border-radius: 14px; padding: 16px; width: 100%; max-width: 380px; }
+  #dlg h2 { margin: 0 0 10px; font-size: 16px; }
+  #dlg label { display: block; font-size: 12px; color: var(--muted); margin: 10px 0 4px; }
+  #dlg input, #dlg select { width: 100%; padding: 9px 10px; border: 1px solid var(--line); border-radius: 8px;
+    background: var(--bg); color: var(--ink); font: inherit; font-size: 15px; }
+  #dlg .two { display: flex; gap: 8px; } #dlg .two > div { flex: 1; }
+  #dlg .btns { display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px; }
+</style>
+</head>
+<body>
+<div id="viewport">
+  <canvas id="grid"></canvas>
+  <div id="units"></div>
+</div>
+
+<div id="bar">
+  <h1>TACTIS</h1>
+  <span class="scale" id="scaleInfo"></span>
+  <button class="btn" id="fit">맞춤</button>
+  <button class="btn primary" id="add">+ 부대</button>
+  <button class="btn" id="reset" title="샘플 데이터로 초기화">⟲</button>
+</div>
+<div id="banner"><span id="bannerText"></span><button class="btn sm" id="bannerCancel">취소</button></div>
+
+<div id="sheet" aria-hidden="true">
+  <div class="grab"></div>
+  <header id="sheetHead"></header>
+  <div class="body" id="sheetBody"></div>
+  <footer id="sheetFoot"></footer>
+</div>
+
+<div id="dlgwrap"><form id="dlg"></form></div>
+
+<script>
+(() => {
+'use strict';
+
+const TILE = 100;          // 타일 한 칸 = 100m
+const N = 20;              // 20x20 타일 = 4km²
+const MAP = TILE * N;
+const BLD = 0.7;           // 건물은 타일의 70%
+const COMPACT_TILE_PX = 70; // 타일이 이 크기보다 작으면 단대호만 표시
+const KEY = 'tactis.v1';
+
+const TYPES = { inf: '보병', armor: '기갑', mech: '기계화', arty: '포병', recon: '정찰', hq: '본부/지원' };
+const ECHELONS = { '': '없음', I: '중대 (I)', II: '대대 (II)', III: '연대 (III)', X: '여단 (X)', XX: '사단 (XX)' };
+
+// ---------- state ----------
+let uid = 1;
+const nid = () => 'i' + (uid++) + Math.random().toString(36).slice(2, 6);
+
+function sample() {
+  const sub = (name, cur, max, equip = '') => ({ id: nid(), name, cur, max, equip });
+  return [
+    { id: nid(), name: '제1여단 1대대', x: 5, y: 6, type: 'inf', ech: 'II',
+      subs: [sub('보병중대', 200, 220, '전차 12대, 장갑차 10대'), sub('보병중대', 130, 150), sub('본부중대', 50, 50)] },
+    { id: nid(), name: '제1여단 2대대', x: 8, y: 9, type: 'mech', ech: 'II',
+      subs: [sub('기계화중대', 140, 160, '장갑차 14대'), sub('본부중대', 40, 60)] },
+    { id: nid(), name: '제1여단 3대대', x: 11, y: 6, type: 'armor', ech: 'II',
+      subs: [sub('전차중대', 70, 90, '전차 14대'), sub('전차중대', 30, 90, '전차 6대')] },
+    { id: nid(), name: '제1여단 포병대대', x: 7, y: 13, type: 'arty', ech: 'II',
+      subs: [sub('포대', 90, 100, '견인포 6문')] },
+    { id: nid(), name: '제1여단 본부', x: 9, y: 4, type: 'hq', ech: 'X',
+      subs: [sub('본부중대', 60, 60)] },
+  ];
+}
+
+let units;
+try { units = JSON.parse(localStorage.getItem(KEY)); } catch (e) {}
+if (!Array.isArray(units) || !units.length) units = sample();
+const save = () => { try { localStorage.setItem(KEY, JSON.stringify(units)); } catch (e) {} };
+
+const view = { s: 1, ox: 0, oy: 0 };       // s: px per meter
+let selectedId = null;
+let mode = null;                            // {kind:'add'|'move', id?}
+
+const $ = id => document.getElementById(id);
+const vp = $('viewport'), canvas = $('grid'), layer = $('units');
+const ctx = canvas.getContext('2d');
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const num = v => Math.max(0, Math.floor(Number(v) || 0));
+
+function totals(u) {
+  if (u.subs && u.subs.length) return u.subs.reduce((a, s) => ({ cur: a.cur + s.cur, max: a.max + s.max }), { cur: 0, max: 0 });
+  return { cur: u.cur || 0, max: u.max || 0 };
+}
+const pct = t => (t.max > 0 ? Math.round(t.cur / t.max * 100) : 0);
+const color = p => (p >= 70 ? '#2e9e4f' : p >= 40 ? '#e0a21a' : '#d23c32');
+
+// ---------- 단대호 (군대부호) ----------
+function symbolSVG(type, ech) {
+  let inner = '';
+  if (type === 'inf' || type === 'mech') inner += '<path d="M3 10L33 30M33 10L3 30" stroke="#000" stroke-width="1.6" fill="none"/>';
+  if (type === 'armor' || type === 'mech') inner += '<ellipse cx="18" cy="20" rx="10" ry="6" stroke="#000" stroke-width="1.6" fill="none"/>';
+  if (type === 'arty') inner += '<circle cx="18" cy="20" r="3.2" fill="#000"/>';
+  if (type === 'recon') inner += '<path d="M3 30L33 10" stroke="#000" stroke-width="1.6" fill="none"/>';
+  if (type === 'hq') inner += '<path d="M10 28V13h10l-2 3 2 3H10" stroke="#000" stroke-width="1.4" fill="none"/>';
+  const e = ech ? `<text x="18" y="8" font-size="9" font-weight="700" text-anchor="middle" fill="#000" font-family="sans-serif">${esc(ech)}</text>` : '';
+  return `<svg viewBox="0 0 36 31" xmlns="http://www.w3.org/2000/svg">${e}<rect x="3" y="10" width="30" height="20" fill="#8fd3ff" stroke="#000" stroke-width="1.8"/>${inner}</svg>`;
+}
+
+// ---------- 맵 렌더링 ----------
+function sizeCanvas() {
+  const dpr = window.devicePixelRatio || 1;
+  canvas.width = Math.round(innerWidth * dpr);
+  canvas.height = Math.round(innerHeight * dpr);
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+}
+
+function drawGrid() {
+  const { s, ox, oy } = view;
+  ctx.fillStyle = '#2a3038';
+  ctx.fillRect(0, 0, innerWidth, innerHeight);
+  ctx.fillStyle = '#d8dccd';
+  ctx.fillRect(ox, oy, MAP * s, MAP * s);
+  const tp = TILE * s;
+  ctx.lineWidth = 1;
+  ctx.strokeStyle = 'rgba(60,70,50,.35)';
+  ctx.beginPath();
+  for (let i = 0; i <= N; i++) {
+    const p = Math.round(ox + i * tp) + .5, q = Math.round(oy + i * tp) + .5;
+    ctx.moveTo(p, oy); ctx.lineTo(p, oy + MAP * s);
+    ctx.moveTo(ox, q); ctx.lineTo(ox + MAP * s, q);
+  }
+  ctx.stroke();
+  ctx.strokeStyle = '#000'; ctx.lineWidth = 2;
+  ctx.strokeRect(ox, oy, MAP * s, MAP * s);
+  if (tp >= 28) {
+    ctx.fillStyle = 'rgba(40,50,35,.7)';
+    ctx.font = '10px sans-serif';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    for (let i = 0; i < N; i++) {
+      ctx.fillText(String.fromCharCode(65 + i), ox + (i + .5) * tp, oy - 8);
+      ctx.fillText(String(i + 1), ox - 10, oy + (i + .5) * tp);
+    }
+  }
+  if (tp >= 90) {
+    ctx.fillStyle = 'rgba(40,50,35,.45)';
+    ctx.font = '10px sans-serif';
+    ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+    for (let r = 0; r < N; r++) for (let c = 0; c < N; c++)
+      ctx.fillText(String.fromCharCode(65 + c) + (r + 1), ox + c * tp + 3, oy + r * tp + 3);
+  }
+}
+
+const els = new Map();   // id -> element
+
+function ensureEl(u) {
+  let el = els.get(u.id);
+  if (!el) {
+    el = document.createElement('div');
+    el.className = 'unit';
+    el.dataset.id = u.id;
+    el.innerHTML = '<div class="bld"></div><div class="hud"></div>';
+    layer.appendChild(el);
+    els.set(u.id, el);
+  }
+  return el;
+}
+
+function refreshHud(u) {
+  const el = ensureEl(u);
+  const t = totals(u), p = pct(t);
+  el.querySelector('.hud').innerHTML =
+    `<span class="nm">${esc(u.name)}</span>${symbolSVG(u.type, u.ech)}` +
+    `<span class="bar"><i style="width:${Math.min(100, p)}%;background:${color(p)}"></i></span><span class="pc">${p}%</span>`;
+  el.classList.toggle('sel', u.id === selectedId);
+}
+
+function syncUnits() {
+  const live = new Set(units.map(u => u.id));
+  for (const [id, el] of els) if (!live.has(id)) { el.remove(); els.delete(id); }
+  units.forEach(refreshHud);
+  layout();
+}
+
+function layout() {
+  const tp = TILE * view.s;
+  for (const u of units) {
+    const el = ensureEl(u);
+    el.style.width = el.style.height = tp + 'px';
+    el.style.transform = `translate(${view.ox + u.x * tp}px,${view.oy + u.y * tp}px)`;
+  }
+}
+
+function render() {
+  drawGrid();
+  layout();
+  vp.classList.toggle('compact', TILE * view.s < COMPACT_TILE_PX);
+  $('scaleInfo').textContent = `타일 ${Math.round(TILE * view.s)}px · 100m`;
+}
+
+// ---------- 뷰 조작 ----------
+const minScale = () => Math.min(innerWidth, innerHeight - 40) / MAP * 0.7;
+const MAX_SCALE = 3;
+
+function clampView() {
+  const w = MAP * view.s;
+  const m = 60;
+  view.ox = Math.min(innerWidth - m, Math.max(m - w, view.ox));
+  view.oy = Math.min(innerHeight - m, Math.max(m - w, view.oy));
+}
+
+function fit() {
+  const avail = Math.min(innerWidth, innerHeight - 70);
+  view.s = Math.max(minScale(), avail / MAP * 0.96);
+  view.ox = (innerWidth - MAP * view.s) / 2;
+  view.oy = (innerHeight - MAP * view.s) / 2 + 20;
+  render();
+}
+
+function zoomAt(px, py, k) {
+  const ns = Math.min(MAX_SCALE, Math.max(minScale(), view.s * k));
+  const r = ns / view.s;
+  view.ox = px - (px - view.ox) * r;
+  view.oy = py - (py - view.oy) * r;
+  view.s = ns;
+  clampView();
+  render();
+}
+
+const ptrs = new Map();
+let gesture = null;
+
+vp.addEventListener('pointerdown', e => {
+  ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY });
+  if (ptrs.size === 1) {
+    gesture = { moved: false, sx: e.clientX, sy: e.clientY, target: e.target, pinch: null };
+  } else if (ptrs.size === 2) {
+    const [a, b] = [...ptrs.values()];
+    gesture.pinch = { d: Math.hypot(a.x - b.x, a.y - b.y) };
+    gesture.moved = true;
+  }
+});
+
+vp.addEventListener('pointermove', e => {
+  const p = ptrs.get(e.pointerId);
+  if (!p || !gesture) return;
+  if (ptrs.size === 2 && gesture.pinch) {
+    p.x = e.clientX; p.y = e.clientY;
+    const [a, b] = [...ptrs.values()];
+    const d = Math.hypot(a.x - b.x, a.y - b.y);
+    zoomAt((a.x + b.x) / 2, (a.y + b.y) / 2, d / gesture.pinch.d);
+    gesture.pinch.d = d;
+    return;
+  }
+  if (ptrs.size !== 1) return;
+  const dx = e.clientX - p.x, dy = e.clientY - p.y;
+  if (!gesture.moved && Math.hypot(e.clientX - gesture.sx, e.clientY - gesture.sy) < 6) return;
+  if (!gesture.moved) { gesture.moved = true; vp.classList.add('dragging'); vp.setPointerCapture(e.pointerId); }
+  p.x = e.clientX; p.y = e.clientY;
+  view.ox += dx; view.oy += dy;
+  clampView();
+  render();
+});
+
+function endPtr(e) {
+  if (!ptrs.has(e.pointerId)) return;
+  ptrs.delete(e.pointerId);
+  vp.classList.remove('dragging');
+  if (ptrs.size === 0 && gesture) {
+    const g = gesture; gesture = null;
+    if (!g.moved && e.type === 'pointerup') tap(e, g.target);
+  } else if (ptrs.size === 1 && gesture) {
+    gesture.pinch = null;
+    const p = [...ptrs.values()][0];
+    gesture.sx = p.x; gesture.sy = p.y;
+  }
+}
+vp.addEventListener('pointerup', endPtr);
+vp.addEventListener('pointercancel', endPtr);
+
+vp.addEventListener('wheel', e => {
+  e.preventDefault();
+  zoomAt(e.clientX, e.clientY, Math.exp(-e.deltaY * 0.0015));
+}, { passive: false });
+
+addEventListener('resize', () => { sizeCanvas(); clampView(); render(); });
+
+function tileAt(px, py) {
+  const tx = Math.floor((px - view.ox) / (TILE * view.s));
+  const ty = Math.floor((py - view.oy) / (TILE * view.s));
+  return tx >= 0 && ty >= 0 && tx < N && ty < N ? { x: tx, y: ty } : null;
+}
+const unitAtTile = (x, y, ignore) => units.find(u => u.x === x && u.y === y && u.id !== ignore);
+
+function tap(e, target) {
+  if (mode) {
+    const t = tileAt(e.clientX, e.clientY);
+    if (!t) return;
+    if (unitAtTile(t.x, t.y, mode.id)) { flash('이미 부대가 있는 타일입니다'); return; }
+    if (mode.kind === 'add') {
+      const u = { id: nid(), name: '새 부대', x: t.x, y: t.y, type: 'inf', ech: 'II', subs: [] };
+      units.push(u);
+      setMode(null); save(); syncUnits(); openSheet(u.id); editUnit(u.id);
+    } else {
+      const u = byId(mode.id);
+      u.x = t.x; u.y = t.y;
+      const id = mode.id;
+      setMode(null); save(); layout(); openSheet(id);
+    }
+    return;
+  }
+  const el = target.closest && target.closest('.unit');
+  if (el) openSheet(el.dataset.id);
+  else closeSheet();
+}
+
+// ---------- 모드 배너 ----------
+let flashTimer;
+function setMode(m) {
+  mode = m;
+  $('banner').classList.toggle('on', !!m);
+  if (m) $('bannerText').textContent = m.kind === 'add' ? '부대를 둘 타일을 터치하세요' : '이동할 타일을 터치하세요';
+}
+function flash(msg) {
+  $('banner').classList.add('on');
+  $('bannerText').textContent = msg;
+  clearTimeout(flashTimer);
+  flashTimer = setTimeout(() => setMode(mode), 1400);
+}
+$('bannerCancel').onclick = () => { const id = mode && mode.id; setMode(null); if (id) openSheet(id); };
+$('add').onclick = () => { closeSheet(); setMode({ kind: 'add' }); };
+$('fit').onclick = fit;
+$('reset').onclick = () => {
+  if (!confirm('모든 부대를 샘플 데이터로 되돌릴까요?')) return;
+  units = sample(); selectedId = null; closeSheet(); save(); syncUnits();
+};
+
+// ---------- 하단 모달 ----------
+const byId = id => units.find(u => u.id === id);
+
+function openSheet(id) {
+  selectedId = id;
+  units.forEach(refreshHud);
+  renderSheet();
+  $('sheet').classList.add('open');
+  $('sheet').setAttribute('aria-hidden', 'false');
+}
+function closeSheet() {
+  selectedId = null;
+  $('sheet').classList.remove('open');
+  $('sheet').setAttribute('aria-hidden', 'true');
+  units.forEach(refreshHud);
+}
+
+function renderSheet() {
+  const u = byId(selectedId);
+  if (!u) return closeSheet();
+  const t = totals(u);
+  $('sheetHead').innerHTML =
+    `<div class="title"><span>${esc(u.name)}</span>${symbolSVG(u.type, u.ech)}<button class="x" data-a="close" aria-label="닫기">×</button></div>` +
+    `<div class="total">(${t.cur}/${t.max}) · ${pct(t)}% · ${String.fromCharCode(65 + u.x)}${u.y + 1}</div>`;
+  $('sheetBody').innerHTML = (u.subs.length ? u.subs.map(s => {
+    const p = pct(s);
+    return `<div class="block" data-sid="${s.id}">
+      <div class="row"><b>${esc(s.name)}</b><span class="cnt">(${s.cur}/${s.max})</span>
+        <span class="acts"><button class="btn sm" data-a="editsub">수정</button><button class="btn sm danger" data-a="delsub">삭제</button></span></div>
+      ${s.equip ? `<div class="eq">[${esc(s.equip)}]</div>` : ''}
+      <div class="mini"><i style="width:${Math.min(100, p)}%;background:${color(p)}"></i></div></div>`;
+  }).join('') : '<div class="empty">예하 편제가 없습니다</div>');
+  $('sheetFoot').innerHTML =
+    `<button class="btn primary" data-a="addsub">+ 편제 추가</button><span class="grow"></span>` +
+    `<button class="btn" data-a="editunit">부대 편집</button><button class="btn" data-a="move">이동</button>` +
+    `<button class="btn danger" data-a="delunit">부대 삭제</button>`;
+}
+
+$('sheet').addEventListener('click', e => {
+  const b = e.target.closest('[data-a]');
+  if (!b) return;
+  const a = b.dataset.a, u = byId(selectedId);
+  const sid = b.closest('.block') && b.closest('.block').dataset.sid;
+  if (a === 'close') closeSheet();
+  else if (a === 'addsub') editSub(u.id, null);
+  else if (a === 'editsub') editSub(u.id, sid);
+  else if (a === 'delsub') {
+    const s = u.subs.find(x => x.id === sid);
+    if (confirm(`'${s.name}' 편제를 삭제할까요?`)) { u.subs = u.subs.filter(x => x.id !== sid); commit(u); }
+  }
+  else if (a === 'editunit') editUnit(u.id);
+  else if (a === 'move') { const id = u.id; closeSheet(); setMode({ kind: 'move', id }); }
+  else if (a === 'delunit') {
+    if (confirm(`'${u.name}' 부대를 삭제할까요?`)) { units = units.filter(x => x.id !== u.id); closeSheet(); save(); syncUnits(); }
+  }
+});
+
+function commit(u) { save(); refreshHud(u); renderSheet(); }
+
+// ---------- 편집 다이얼로그 ----------
+function dialog(title, html, onOk) {
+  const f = $('dlg');
+  f.innerHTML = `<h2>${esc(title)}</h2>${html}<div class="btns"><button type="button" class="btn" id="dCancel">취소</button><button class="btn primary">저장</button></div>`;
+  $('dlgwrap').classList.add('on');
+  const first = f.querySelector('input'); if (first) first.focus();
+  const close = () => { $('dlgwrap').classList.remove('on'); f.onsubmit = null; };
+  $('dCancel').onclick = close;
+  f.onsubmit = ev => { ev.preventDefault(); if (onOk(new FormData(f)) !== false) close(); };
+}
+
+function editUnit(id) {
+  const u = byId(id);
+  const opts = (o, v) => Object.entries(o).map(([k, l]) => `<option value="${k}"${k === v ? ' selected' : ''}>${esc(l)}</option>`).join('');
+  const hasSubs = u.subs.length > 0;
+  dialog('부대 편집',
+    `<label>부대명</label><input name="name" value="${esc(u.name)}" required maxlength="30">
+     <div class="two"><div><label>병과 (단대호)</label><select name="type">${opts(TYPES, u.type)}</select></div>
+     <div><label>제대</label><select name="ech">${opts(ECHELONS, u.ech)}</select></div></div>` +
+    (hasSubs ? '<label>현재원/총원은 예하 편제의 합계로 자동 계산됩니다</label>' :
+      `<div class="two"><div><label>현재원</label><input name="cur" type="number" min="0" value="${u.cur || 0}"></div>
+       <div><label>총원</label><input name="max" type="number" min="0" value="${u.max || 0}"></div></div>`),
+    fd => {
+      u.name = fd.get('name').trim() || u.name;
+      u.type = fd.get('type'); u.ech = fd.get('ech');
+      if (!hasSubs) { u.cur = num(fd.get('cur')); u.max = num(fd.get('max')); }
+      commit(u);
+    });
+}
+
+function editSub(uidv, sid) {
+  const u = byId(uidv);
+  const s = sid ? u.subs.find(x => x.id === sid) : { name: '', cur: 0, max: 0, equip: '' };
+  dialog(sid ? '편제 수정' : '편제 추가',
+    `<label>편제명</label><input name="name" value="${esc(s.name)}" required maxlength="30" placeholder="예: 보병중대">
+     <div class="two"><div><label>현재원</label><input name="cur" type="number" min="0" value="${s.cur}"></div>
+     <div><label>총원</label><input name="max" type="number" min="0" value="${s.max}"></div></div>
+     <label>장비 (선택)</label><input name="equip" value="${esc(s.equip)}" placeholder="전차 12대, 장갑차 10대">`,
+    fd => {
+      const v = { name: fd.get('name').trim(), cur: num(fd.get('cur')), max: num(fd.get('max')), equip: fd.get('equip').trim() };
+      if (!v.name) return false;
+      if (sid) Object.assign(s, v); else u.subs.push({ id: nid(), ...v });
+      commit(u);
+    });
+}
+
+// ---------- init ----------
+sizeCanvas();
+syncUnits();
+fit();
+})();
+</script>
+</body>
+</html>
