@@ -98,16 +98,23 @@
     scroll-snap-type: y mandatory; scroll-padding: 8px 0; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; }
   .block { border: 1px solid rgba(0,0,0,.12); background: rgba(255,255,255,.55); border-radius: 14px; padding: 10px 12px; margin: 8px 0; }
   .cols { display: flex; align-items: flex-start; }
-  .subs { flex: 0 0 60%; min-width: 0; }
+  .subs { flex: 0 0 70%; min-width: 0; }
   .subs .block { scroll-snap-align: start; }
+  .subs .block, .sup { min-height: 69px; }          /* 장비가 있는 편제 블럭 높이에 통일 */
+  .subs .block { display: flex; flex-direction: column; }
+  .subs .block .mini { margin-top: auto; }
+  .subs .block .row.v + .mini { margin-top: auto; }
+  .sup { justify-content: center; }
+  .editing .subs .block, .editing .sup { min-height: 97px; }
+  .editing .sup.blank { min-height: 85px; }
   .sups { flex: 1; min-width: 0; padding-left: 10px; position: sticky; top: 0; }
-  .sup { margin: 8px 0 0; padding: 8px 10px; }
+  .sup { margin: 8px 0 0; padding: 8px 10px; display: flex; flex-direction: column; }
   .sup .row { display: flex; align-items: center; gap: 6px; }
   .sup b { flex: 1; min-width: 0; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .sup svg { height: 16px; width: auto; flex: none; display: block; }
   .sup .btn { margin-top: 6px; }
   .sup.blank { background: rgba(0,0,0,.05); border-style: dashed; color: var(--muted); cursor: pointer; }
-  .sup.none { min-height: 56px; display: flex; align-items: center; justify-content: center; color: var(--muted); text-align: center; }
+  .sup.none { align-items: center; justify-content: center; color: var(--muted); text-align: center; }
   .suplist { margin-top: 6px; border: 1px solid rgba(0,0,0,.12); border-radius: 14px; overflow: hidden; background: rgba(255,255,255,.8); }
   .suplist button { display: block; width: 100%; padding: 8px 10px; border: 0; border-bottom: 1px solid rgba(0,0,0,.08); background: none;
     color: var(--ink); font: inherit; text-align: left; cursor: pointer; }
