@@ -190,7 +190,7 @@ const color = p => (p >= 70 ? '#8fd6a4' : p >= 40 ? '#f0cb7a' : '#ee9a92');
 
 // ---------- 단대호 (군대부호) ----------
 function symbolSVG(type, ech) {
-  const st = 'stroke="#000" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" fill="none"';
+  const st = 'stroke="#000" stroke-width="1.1" stroke-linecap="round" stroke-linejoin="round" fill="none"';
   let inner = '';
   if (type === 'inf' || type === 'mech') inner += `<path d="M8 14L28 27M28 14L8 27" ${st}/>`;
   if (type === 'armor' || type === 'mech') inner += `<ellipse cx="18" cy="20.5" rx="9" ry="5.5" ${st}/>`;
@@ -198,7 +198,7 @@ function symbolSVG(type, ech) {
   if (type === 'recon') inner += `<path d="M8 27L28 14" ${st}/>`;
   if (type === 'hq') inner += `<path d="M13 27V14h9l-2 3 2 3h-9" ${st}/>`;
   const e = ech ? `<text x="18" y="8" font-size="9" font-weight="700" text-anchor="middle" fill="#000" font-family="sans-serif">${esc(ech)}</text>` : '';
-  return `<svg viewBox="0 0 36 31" xmlns="http://www.w3.org/2000/svg">${e}<rect x="3" y="10" width="30" height="20" rx="6" ry="6" fill="#fff" stroke="#000" stroke-width="1.8"/>${inner}</svg>`;
+  return `<svg viewBox="0 0 36 31" xmlns="http://www.w3.org/2000/svg">${e}<rect x="3" y="10" width="30" height="20" rx="6" ry="6" fill="#fff" stroke="#000" stroke-width="1.1"/>${inner}</svg>`;
 }
 
 // ---------- 맵 렌더링 ----------
@@ -446,7 +446,7 @@ function closeSheet() {
   units.forEach(refreshHud);
 }
 
-const IC = { x: '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4 4l8 8M12 4l-8 8"/></svg>', edit: '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 13.5l.7-3L11 2.7a1.4 1.4 0 012 2L5.5 12.8z"/></svg>', trash: '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 4.5h10M6.5 4.5V3h3v1.5M4.5 4.5l.6 8.5h5.8l.6-8.5"/></svg>' };
+const IC = { x: '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.1" stroke-linecap="round"><path d="M4 4l8 8M12 4l-8 8"/></svg>', edit: '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 13.5l.7-3L11 2.7a1.4 1.4 0 012 2L5.5 12.8z"/></svg>', trash: '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 4.5h10M6.5 4.5V3h3v1.5M4.5 4.5l.6 8.5h5.8l.6-8.5"/></svg>' };
 
 function renderSheet() {
   const u = byId(selectedId);
