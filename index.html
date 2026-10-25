@@ -106,7 +106,6 @@
   .subs .block .row.v + .mini { margin-top: auto; }
   .sup { justify-content: center; }
   .editing .subs .block, .editing .sup { min-height: 97px; }
-  .editing .sup.blank { min-height: 85px; }
   .sups { flex: 1; min-width: 0; padding-left: 10px; position: sticky; top: 0; }
   .sup { margin: 8px 0 0; padding: 8px 10px; display: flex; flex-direction: column; }
   .sup .row { display: flex; align-items: center; gap: 6px; }
@@ -579,7 +578,7 @@ function supHTML(u) {
     `${editing ? `<button class="btn primary sm" data-a="delsup" data-uid="${x.id}">삭제</button>` : ''}</div>`).join('');
   if (!editing) return linked || '<div class="block sup none">지원 부대 없음</div>';
   const c = supCandidates(u);
-  return linked + `<div class="block sup blank" data-a="supadd">+ 선택</div>` + (supPick
+  return linked + `<div class="block sup blank" data-a="supadd">+ 추가</div>` + (supPick
     ? `<div class="suplist">${c.length ? c.map(x => `<button data-a="suppick" data-uid="${x.id}">${esc(x.name)}<small>${TYPES[x.type]}</small></button>`).join('') : '<div class="none">선택 가능한 건물이 없습니다</div>'}</div>` : '');
 }
 
