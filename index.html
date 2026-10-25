@@ -202,17 +202,19 @@ function symbolSVG(type, ech) {
 }
 
 // ---------- 맵 렌더링 ----------
+let W = 0, H = 0;   // 실제 뷰포트 컨테이너 크기 (iOS에서 innerHeight와 다를 수 있어 DOM 기준으로 통일)
 function sizeCanvas() {
   const dpr = window.devicePixelRatio || 1;
-  canvas.width = Math.round(innerWidth * dpr);
-  canvas.height = Math.round(innerHeight * dpr);
+  W = vp.clientWidth; H = vp.clientHeight;
+  canvas.width = Math.round(W * dpr);
+  canvas.height = Math.round(H * dpr);
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 }
 
 function drawGrid() {
   const { s, ox, oy } = view;
   ctx.fillStyle = '#ffffff';
-  ctx.fillRect(0, 0, innerWidth, innerHeight);
+  ctx.fillRect(0, 0, W, H);
   ctx.fillStyle = '#f4f4f5';
   ctx.fillRect(ox, oy, MAP * s, MAP * s);
   const tp = TILE * s;
@@ -290,21 +292,21 @@ function render() {
 }
 
 // ---------- 뷰 조작 ----------
-const minScale = () => Math.min(innerWidth, innerHeight - 40) / MAP * 0.7;
+const minScale = () => Math.min(W, H - 40) / MAP * 0.7;
 const MAX_SCALE = 3;
 
 function clampView() {
   const w = MAP * view.s;
   const m = 60;
-  view.ox = Math.min(innerWidth - m, Math.max(m - w, view.ox));
-  view.oy = Math.min(innerHeight - m, Math.max(m - w, view.oy));
+  view.ox = Math.min(W - m, Math.max(m - w, view.ox));
+  view.oy = Math.min(H - m, Math.max(m - w, view.oy));
 }
 
 function fit() {
-  const avail = Math.min(innerWidth, innerHeight - 70);
+  const avail = Math.min(W, H - 70);
   view.s = Math.max(minScale(), avail / MAP * 0.96);
-  view.ox = (innerWidth - MAP * view.s) / 2;
-  view.oy = (innerHeight - MAP * view.s) / 2 + 20;
+  view.ox = (W - MAP * view.s) / 2;
+  view.oy = (H - MAP * view.s) / 2 + 20;
   render();
 }
 
@@ -423,7 +425,7 @@ document.addEventListener('selectstart', e => {
   if (!(n && n.closest('input, [contenteditable]'))) e.preventDefault();
 });
 
-addEventListener('resize', () => { sizeCanvas(); clampView(); render(); });
+new ResizeObserver(() => { sizeCanvas(); clampView(); render(); }).observe(vp);
 
 function tileAt(px, py) {
   const tx = Math.floor((px - view.ox) / (TILE * view.s));
