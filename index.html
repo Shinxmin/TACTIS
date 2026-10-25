@@ -98,16 +98,16 @@
     scroll-snap-type: y mandatory; scroll-padding: 8px 0; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; }
   .block { border: 1px solid rgba(0,0,0,.12); background: rgba(255,255,255,.55); border-radius: 14px; padding: 10px 12px; margin: 8px 0; }
   .cols { display: flex; align-items: flex-start; }
-  .subs { flex: 0 0 66.667%; min-width: 0; }
+  .subs { flex: 0 0 60%; min-width: 0; }
   .subs .block { scroll-snap-align: start; }
   .sups { flex: 1; min-width: 0; padding-left: 10px; position: sticky; top: 0; }
-  .supt { color: var(--muted); margin: 12px 0 0 2px; }
-  .sup { margin: 6px 0 0; padding: 8px 10px; }
-  .sup b { display: block; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .sup .s2 { color: var(--muted); margin-top: 2px; font-variant-numeric: tabular-nums; }
+  .sup { margin: 8px 0 0; padding: 8px 10px; }
+  .sup .row { display: flex; align-items: center; gap: 6px; }
+  .sup b { flex: 1; min-width: 0; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .sup svg { height: 16px; width: auto; flex: none; display: block; }
   .sup .btn { margin-top: 6px; }
-  .supadd { width: 100%; margin-top: 6px; padding: 8px 10px; border: 0; border-radius: 14px; background: rgba(0,0,0,.06);
-    color: var(--muted); font: inherit; text-align: left; cursor: pointer; }
+  .sup.blank { background: rgba(0,0,0,.05); border-style: dashed; color: var(--muted); cursor: pointer; }
+  .sup.none { min-height: 56px; display: flex; align-items: center; justify-content: center; color: var(--muted); text-align: center; }
   .suplist { margin-top: 6px; border: 1px solid rgba(0,0,0,.12); border-radius: 14px; overflow: hidden; background: rgba(255,255,255,.8); }
   .suplist button { display: block; width: 100%; padding: 8px 10px; border: 0; border-bottom: 1px solid rgba(0,0,0,.08); background: none;
     color: var(--ink); font: inherit; text-align: left; cursor: pointer; }
@@ -566,19 +566,13 @@ function supCandidates(u) {
   return units.filter(x => SUP_TYPES.includes(x.type) && x.id !== u.id && !taken.has(x.id) && !dependsOn(x, u.id));
 }
 function supHTML(u) {
-  const linked = u.support.map(byId).filter(Boolean).map(x => {
-    const t = totals(x);
-    return editing
-      ? `<div class="block sup"><b>${esc(x.name)}</b><button class="btn primary sm" data-a="delsup" data-uid="${x.id}">삭제</button></div>`
-      : `<div class="block sup" data-a="gosup" data-uid="${x.id}" style="cursor:pointer"><b>${esc(x.name)}</b><div class="s2">(${t.cur}/${t.max}) ${pct(t)}%</div></div>`;
-  }).join('');
-  let add = '';
-  if (editing) {
-    const c = supCandidates(u);
-    add = `<button class="supadd" data-a="supadd">+ 선택</button>` + (supPick
-      ? `<div class="suplist">${c.length ? c.map(x => `<button data-a="suppick" data-uid="${x.id}">${esc(x.name)}<small>${TYPES[x.type]}</small></button>`).join('') : '<div class="none">선택 가능한 건물이 없습니다</div>'}</div>` : '');
-  }
-  return `<div class="supt">지원부대</div>${linked || editing ? linked : '<div class="supt" style="margin-top:6px">없음</div>'}${add}`;
+  const linked = u.support.map(byId).filter(Boolean).map(x =>
+    `<div class="block sup"${editing ? '' : ` data-a="gosup" data-uid="${x.id}" style="cursor:pointer"`}><div class="row"><b>${esc(x.name)}</b>${symbolSVG(x.type, x.ech)}</div>` +
+    `${editing ? `<button class="btn primary sm" data-a="delsup" data-uid="${x.id}">삭제</button>` : ''}</div>`).join('');
+  if (!editing) return linked || '<div class="block sup none">지원 부대 없음</div>';
+  const c = supCandidates(u);
+  return linked + `<div class="block sup blank" data-a="supadd">+ 선택</div>` + (supPick
+    ? `<div class="suplist">${c.length ? c.map(x => `<button data-a="suppick" data-uid="${x.id}">${esc(x.name)}<small>${TYPES[x.type]}</small></button>`).join('') : '<div class="none">선택 가능한 건물이 없습니다</div>'}</div>` : '');
 }
 
 function updateMore() {
