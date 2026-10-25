@@ -31,20 +31,16 @@
   .unit.lift { z-index: 5; }
   .unit.lift .bld { opacity: .75; box-shadow: 0 4px 12px rgba(0,0,0,.35); }
   .unit.lift.bad .bld { background: #b3261e; }
-  .unit.sel .bld { outline: 3px solid #6b6f76; outline-offset: 2px; }
-  .hud { position: absolute; left: 50%; bottom: 85%; margin-bottom: 5px; transform: translateX(-50%);
+  .unit.sel .bld { outline: 2px solid #3f434a; outline-offset: 2px; }
+  .hud { position: absolute; left: 50%; bottom: 85%; margin-bottom: 9px; transform: translateX(-50%);
     display: flex; align-items: center; gap: 6px; white-space: nowrap; height: 20px;
     font-size: 12px; line-height: 1; color: #000;
     text-shadow: 0 0 3px #fff, 0 0 3px #fff, 0 0 2px #fff; }
   .hud svg { display: block; height: 20px; width: auto; flex: none; }
   .hud .nm { font-weight: 600; }
-  .hud .bar { display: flex; align-items: flex-end; width: 5px; height: 20px; background: #e3e5e8;
-    border-radius: 3px; overflow: hidden; flex: none; }
-  .hud .bar i { display: block; width: 100%; height: 0; border-radius: 3px; }
-  .hud .pc { font-variant-numeric: tabular-nums; font-size: 12px; font-weight: 600; }
   /* 타일 30px 미만: 간소화 (단대호만) */
   #viewport.compact .hud { height: 16px; }
-  #viewport.compact .hud .nm, #viewport.compact .hud .bar, #viewport.compact .hud .pc { display: none; }
+  #viewport.compact .hud .nm { display: none; }
   #viewport.compact .hud svg { height: 16px; }
 
   #bar { position: fixed; top: 0; left: 0; right: 0; display: flex; align-items: center; gap: 8px;
@@ -62,42 +58,54 @@
     padding: 8px 14px; border-radius: 20px; font-size: 14px; display: none; gap: 10px; align-items: center; z-index: 5; }
   #banner.on { display: flex; }
 
-  #sheet { --ink: #fff; --muted: rgba(255,255,255,.66); --line: rgba(255,255,255,.18);
+  #sheet { --ink: #14181d; --muted: #6b7480; --line: rgba(0,0,0,.1); --symh: 22px;
     position: fixed; left: 0; right: 0; bottom: 0; max-height: 72vh; display: flex; flex-direction: column;
-    color: var(--ink); background: rgba(58,60,66,.55);
-    -webkit-backdrop-filter: blur(28px) saturate(180%); backdrop-filter: blur(28px) saturate(180%);
-    border: 1px solid rgba(255,255,255,.28); border-bottom: 0; border-radius: 26px 26px 0 0;
-    box-shadow: 0 -8px 32px rgba(0,0,0,.28), inset 0 1px 0 rgba(255,255,255,.4), inset 0 0 24px rgba(255,255,255,.06);
+    color: var(--ink); background: rgba(255,255,255,.8); border-radius: 0;
+    border-top: 1px solid rgba(0,0,0,.14); box-shadow: 0 -4px 18px rgba(0,0,0,.12);
     transform: translateY(105%); transition: transform .24s ease; z-index: 10;
     max-width: 640px; margin: 0 auto; }
   #sheet.open { transform: none; }
-  #sheet .btn { background: rgba(255,255,255,.14); border-color: rgba(255,255,255,.26); color: #fff; }
-  #sheet .btn.primary { background: var(--accent); border-color: transparent; }
-  #sheet .btn.danger { color: #ffb3ad; }
-  #sheet .grab { width: 40px; height: 4px; border-radius: 2px; background: rgba(255,255,255,.4); margin: 8px auto 0; flex: none; }
+  #sheet .btn { background: rgba(0,0,0,.05); border-color: rgba(0,0,0,.14); color: var(--ink); }
+  #sheet .btn.primary { background: var(--accent); border-color: transparent; color: #fff; }
+  #sheet .grab { width: 40px; height: 4px; border-radius: 2px; background: rgba(0,0,0,.18); margin: 8px auto 0; flex: none; }
   #sheet header { padding: 8px 18px 12px; border-bottom: 1px solid var(--line); flex: none; }
-  .title { display: flex; align-items: center; gap: 8px; font-size: 18px; font-weight: 700; line-height: 30px; }
-  .title svg { height: 22px; width: auto; flex: none; }
-  .total { color: var(--muted); font-size: 14px; margin-top: 2px; font-variant-numeric: tabular-nums; }
-  .ic { width: 30px; height: 30px; border-radius: 50%; border: 1px solid rgba(255,255,255,.28); flex: none;
-    background: rgba(255,255,255,.16); color: #fff; display: inline-flex; align-items: center; justify-content: center;
+  .title { position: relative; display: flex; align-items: center; gap: 8px; font-size: 18px; font-weight: 700; line-height: 30px; }
+  .title .symwrap { display: inline-flex; align-items: center; flex: none; padding-bottom: 1px; }
+  .title svg { height: var(--symh); width: auto; display: block; }
+  .title .tacts { margin-left: auto; display: flex; gap: 6px; }
+  .total { color: var(--muted); font-size: 12.5px; margin-top: 2px; font-variant-numeric: tabular-nums; }
+  .editing .nm-edit, .editing .symwrap { border-bottom: 1.5px solid var(--ink); cursor: text; }
+  .editing .symwrap { cursor: pointer; }
+  .editing .total [contenteditable] { border-bottom: 1px solid var(--muted); }
+  [contenteditable] { -webkit-user-select: text; user-select: text; outline: none; min-width: 1ch; }
+  .ic { width: 30px; height: 30px; border-radius: 50%; border: 1px solid rgba(0,0,0,.15); flex: none;
+    background: rgba(0,0,0,.05); color: var(--ink); display: inline-flex; align-items: center; justify-content: center;
     padding: 0; cursor: pointer; }
   .ic svg { width: 15px; height: 15px; display: block; }
-  .ic.del { color: #ffb3ad; background: rgba(255,90,80,.28); }
-  .title .ic { margin-left: auto; }
+  .ic.on { background: var(--ink); color: #fff; }
+  .ic.del { color: var(--danger); background: rgba(201,55,44,.1); border-color: rgba(201,55,44,.3); }
+  .picker { position: absolute; top: -6px; height: calc(var(--symh) * 4); z-index: 3; padding: 6px 8px;
+    background: rgba(255,255,255,.97); border: 1px solid rgba(0,0,0,.14); border-radius: 12px;
+    box-shadow: 0 4px 16px rgba(0,0,0,.18); display: flex; flex-direction: column; gap: 6px; font-size: 10px; font-weight: 500; line-height: 1; }
+  .picker .types, .picker .echs { display: flex; gap: 4px; overflow-x: auto; scrollbar-width: none; flex: none; }
+  .picker .types::-webkit-scrollbar, .picker .echs::-webkit-scrollbar { display: none; }
+  .picker .types button { flex: none; width: 54px; padding: 5px 0 4px; border: 0; border-radius: 8px; background: none;
+    color: var(--ink); font: inherit; display: flex; flex-direction: column; align-items: center; gap: 5px; cursor: pointer; }
+  .picker .types button.on, .picker .echs button.on { background: rgba(0,0,0,.1); }
+  .picker .echs button { flex: none; min-width: 36px; padding: 6px 8px; border: 1px solid rgba(0,0,0,.14); border-radius: 12px;
+    background: none; color: var(--ink); font: inherit; font-size: 11px; cursor: pointer; }
   #sheet .body { overflow-y: auto; padding: 8px 18px; flex: 1; }
-  .block { border: 1px solid rgba(255,255,255,.2); background: rgba(255,255,255,.1); border-radius: 14px; padding: 10px 12px; margin: 8px 0; }
+  .block { border: 1px solid rgba(0,0,0,.12); background: rgba(255,255,255,.55); border-radius: 14px; padding: 10px 12px; margin: 8px 0; }
   .block .row { display: flex; align-items: center; gap: 8px; min-height: 30px; }
   .block .row b { font-weight: 600; }
   .block .cnt { color: var(--muted); font-variant-numeric: tabular-nums; }
   .block .acts { margin-left: auto; display: flex; gap: 6px; }
   .block .eq { color: var(--muted); font-size: 13px; margin-top: 2px; }
-  .block .mini { height: 4px; background: rgba(255,255,255,.2); border-radius: 2px; margin-top: 8px; overflow: hidden; }
+  .block .mini { height: 4px; background: rgba(0,0,0,.1); border-radius: 2px; margin-top: 8px; overflow: hidden; }
   .block .mini i { display: block; height: 100%; }
   .empty { color: var(--muted); font-size: 14px; text-align: center; padding: 14px 0; }
   #sheet footer { display: flex; gap: 8px; padding: 10px 18px; padding-bottom: max(10px, env(safe-area-inset-bottom));
     border-top: 1px solid var(--line); flex: none; flex-wrap: wrap; align-items: center; }
-  #sheet footer .grow { flex: 1; }
 
   #dlgwrap { position: fixed; inset: 0; background: rgba(0,0,0,.5); display: none; align-items: center;
     justify-content: center; z-index: 20; padding: 16px; }
@@ -146,8 +154,8 @@ const BLD = 0.7;           // 건물은 타일의 70%
 const COMPACT_TILE_PX = 30; // 타일이 이 크기보다 작으면 간소화(단대호만)
 const KEY = 'tactis.v1';
 
-const TYPES = { inf: '보병', armor: '기갑', mech: '기계화', arty: '포병', recon: '정찰', hq: '본부/지원' };
-const ECHELONS = { '': '없음', I: '중대 (I)', II: '대대 (II)', III: '연대 (III)', X: '여단 (X)', XX: '사단 (XX)' };
+const TYPES = { inf: '보병', mech: '기계화보병', armor: '기갑', arty: '포병', recon: '정찰', log: '군수', ad: '방공', eng: '공병', med: '의무', hq: '본부' };
+const ECHELONS = { '': '없음', I: 'I', II: 'II', III: 'III', X: 'X', XX: 'XX' };
 
 // ---------- state ----------
 let uid = 1;
@@ -201,8 +209,12 @@ function symbolSVG(type, ech) {
   if (type === 'arty') inner += '<circle cx="16" cy="11.5" r="3.4" fill="#000"/>';
   if (type === 'recon') inner += `<path d="M6 18L26 5" ${st}/>`;
   if (type === 'hq') inner += `<path d="M11 18V5h9l-2 3 2 3h-9" ${st}/>`;
+  if (type === 'log') inner += `<path d="M7 15.5h18" ${st}/>`;
+  if (type === 'ad') inner += `<path d="M6.5 16a9.5 7.5 0 0 1 19 0" ${st}/>`;
+  if (type === 'eng') inner += `<path d="M7 16.5V8.5h4v4h10v-4h4v8" ${st}/>`;
+  if (type === 'med') inner += `<path d="M16 5.5v12M10 11.5h12" ${st}/>`;
   const e = ech ? `<text x="16" y="-1.5" font-size="9" font-weight="700" text-anchor="middle" fill="#000" font-family="sans-serif">${esc(ech)}</text>` : '';
-  return `<svg viewBox="0 0 32 22" xmlns="http://www.w3.org/2000/svg" style="overflow:visible">${e}<rect x="1" y="1" width="30" height="20" rx="6" ry="6" fill="#fff" stroke="#000" stroke-width="1.1"/>${inner}</svg>`;
+  return `<svg viewBox="0 0 32 22" xmlns="http://www.w3.org/2000/svg" style="overflow:visible">${e}<rect x="1" y="1" width="30" height="20" rx="4" ry="4" fill="#fff" stroke="#000" stroke-width="1.1"/>${inner}</svg>`;
 }
 
 // ---------- 맵 렌더링 ----------
@@ -266,10 +278,7 @@ function ensureEl(u) {
 
 function refreshHud(u) {
   const el = ensureEl(u);
-  const t = totals(u), p = pct(t);
-  el.querySelector('.hud').innerHTML =
-    `<span class="nm">${esc(u.name)}</span>${symbolSVG(u.type, u.ech)}` +
-    `<span class="bar"><i style="height:${Math.min(100, p)}%;background:${color(p)}"></i></span><span class="pc">${p}%</span>`;
+  el.querySelector('.hud').innerHTML = `<span class="nm">${esc(u.name)}</span>${symbolSVG(u.type, u.ech)}`;
   el.classList.toggle('sel', u.id === selectedId);
 }
 
@@ -425,7 +434,11 @@ vp.addEventListener('wheel', e => {
   zoomAt(e.clientX, e.clientY, Math.exp(-e.deltaY * 0.0015));
 }, { passive: false });
 
-['copy', 'cut', 'paste', 'contextmenu', 'selectstart', 'dragstart'].forEach(t => document.addEventListener(t, e => e.preventDefault()));
+['copy', 'cut', 'paste', 'contextmenu', 'dragstart'].forEach(t => document.addEventListener(t, e => e.preventDefault()));
+document.addEventListener('selectstart', e => {
+  const n = e.target.nodeType === 1 ? e.target : e.target.parentElement;
+  if (!(n && n.closest('input, [contenteditable]'))) e.preventDefault();
+});
 
 addEventListener('resize', () => { sizeCanvas(); clampView(); render(); });
 
@@ -443,7 +456,7 @@ function tap(e, target) {
     if (unitAtTile(t.x, t.y, mode.id)) { flash('이미 부대가 있는 타일입니다'); return; }
     const u = { id: nid(), name: '새 부대', x: t.x, y: t.y, type: 'inf', ech: 'II', subs: [] };
     units.push(u);
-    setMode(null); save(); syncUnits(); openSheet(u.id); editUnit(u.id);
+    setMode(null); save(); syncUnits(); openSheet(u.id, true);
     return;
   }
   const el = target.closest && target.closest('.unit');
@@ -475,29 +488,53 @@ $('reset').onclick = () => {
 // ---------- 하단 모달 ----------
 const byId = id => units.find(u => u.id === id);
 
-function openSheet(id) {
+let editing = false, picker = false;
+
+function openSheet(id, edit = false) {
   selectedId = id;
+  editing = edit; picker = false;
   units.forEach(refreshHud);
   renderSheet();
   $('sheet').classList.add('open');
   $('sheet').setAttribute('aria-hidden', 'false');
 }
 function closeSheet() {
-  selectedId = null;
+  selectedId = null; editing = false; picker = false;
   $('sheet').classList.remove('open');
   $('sheet').setAttribute('aria-hidden', 'true');
   units.forEach(refreshHud);
 }
 
-const IC = { x: '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.1" stroke-linecap="round"><path d="M4 4l8 8M12 4l-8 8"/></svg>', edit: '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 13.5l.7-3L11 2.7a1.4 1.4 0 012 2L5.5 12.8z"/></svg>', trash: '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 4.5h10M6.5 4.5V3h3v1.5M4.5 4.5l.6 8.5h5.8l.6-8.5"/></svg>' };
+const svgi = d => `<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">${d}</svg>`;
+const IC = {
+  edit: svgi('<path d="M2.5 13.5l.7-3L11 2.7a1.4 1.4 0 012 2L5.5 12.8z"/>'),
+  trash: svgi('<path d="M3 4.5h10M6.5 4.5V3h3v1.5M4.5 4.5l.6 8.5h5.8l.6-8.5"/>'),
+};
+
+const ce = (f, v) => `<span ${editing ? `contenteditable="plaintext-only" data-f="${f}"` : ''}>${esc(v)}</span>`;
 
 function renderSheet() {
   const u = byId(selectedId);
   if (!u) return closeSheet();
-  const t = totals(u);
+  const t = totals(u), auto = u.subs.length > 0;
+  $('sheet').classList.toggle('editing', editing);
+  const cnt = (editing && !auto)
+    ? `(<span contenteditable="plaintext-only" inputmode="numeric" data-f="cur">${t.cur}</span>/<span contenteditable="plaintext-only" inputmode="numeric" data-f="max">${t.max}</span>)`
+    : `(${t.cur}/${t.max})`;
   $('sheetHead').innerHTML =
-    `<div class="title"><span>${esc(u.name)}</span>${symbolSVG(u.type, u.ech)}<button class="ic" data-a="close" aria-label="닫기">${IC.x}</button></div>` +
-    `<div class="total">(${t.cur}/${t.max}) ${pct(t)}%</div>`;
+    `<div class="title"><span class="nm-edit" ${editing ? 'contenteditable="plaintext-only" data-f="name"' : ''}>${esc(u.name)}</span>` +
+    `<span class="symwrap" data-a="sym">${symbolSVG(u.type, u.ech)}</span>` +
+    `<span class="tacts"><button class="ic${editing ? ' on' : ''}" data-a="editunit" aria-label="수정">${IC.edit}</button>` +
+    `<button class="ic del" data-a="delunit" aria-label="삭제">${IC.trash}</button></span>` +
+    (editing && picker ? `<div class="picker">
+      <div class="types">${Object.entries(TYPES).map(([k, l]) => `<button data-a="pick" data-v="${k}" class="${k === u.type ? 'on' : ''}">${symbolSVG(k, '')}<span>${l}</span></button>`).join('')}</div>
+      <div class="echs">${Object.entries(ECHELONS).map(([k, l]) => `<button data-a="ech" data-v="${k}" class="${k === u.ech ? 'on' : ''}">${l}</button>`).join('')}</div></div>` : '') +
+    `</div><div class="total"><span class="cn">${cnt}</span> <span class="pv">${pct(t)}%</span></div>`;
+  if (editing && picker) {
+    const title = $('sheetHead').querySelector('.title'), sym = title.querySelector('.symwrap'), pk = title.querySelector('.picker');
+    const left = sym.getBoundingClientRect().right - title.getBoundingClientRect().left + 10;
+    pk.style.left = left + 'px'; pk.style.width = (title.clientWidth - left) + 'px';
+  }
   $('sheetBody').innerHTML = (u.subs.length ? u.subs.map(s => {
     const p = pct(s);
     return `<div class="block" data-sid="${s.id}">
@@ -506,28 +543,45 @@ function renderSheet() {
       ${s.equip ? `<div class="eq">[${esc(s.equip)}]</div>` : ''}
       <div class="mini"><i style="width:${Math.min(100, p)}%;background:${color(p)}"></i></div></div>`;
   }).join('') : '<div class="empty">예하 편제가 없습니다</div>');
-  $('sheetFoot').innerHTML =
-    `<button class="btn primary" data-a="addsub">+ 편제 추가</button><span class="grow"></span>` +
-    `<button class="btn" data-a="editunit">부대 편집</button>` +
-    `<button class="btn danger" data-a="delunit">부대 삭제</button>`;
+  $('sheetFoot').innerHTML = `<button class="btn primary" data-a="addsub">+ 편제 추가</button>`;
 }
 
 $('sheet').addEventListener('click', e => {
   const b = e.target.closest('[data-a]');
+  const u = byId(selectedId);
+  if (!u) return;
+  if (picker && !(b && ['pick', 'ech'].includes(b.dataset.a)) && !e.target.closest('.picker') && !(b && b.dataset.a === 'sym')) { picker = false; renderSheet(); }
   if (!b) return;
-  const a = b.dataset.a, u = byId(selectedId);
+  const a = b.dataset.a;
   const sid = b.closest('.block') && b.closest('.block').dataset.sid;
-  if (a === 'close') closeSheet();
-  else if (a === 'addsub') editSub(u.id, null);
+  if (a === 'addsub') editSub(u.id, null);
   else if (a === 'editsub') editSub(u.id, sid);
-  else if (a === 'delsub') {
-    const s = u.subs.find(x => x.id === sid);
-    if (confirm(`'${s.name}' 편제를 삭제할까요?`)) { u.subs = u.subs.filter(x => x.id !== sid); commit(u); }
-  }
-  else if (a === 'editunit') editUnit(u.id);
-  else if (a === 'delunit') {
-    if (confirm(`'${u.name}' 부대를 삭제할까요?`)) { units = units.filter(x => x.id !== u.id); closeSheet(); save(); syncUnits(); }
-  }
+  else if (a === 'delsub') { u.subs = u.subs.filter(x => x.id !== sid); commit(u); }
+  else if (a === 'editunit') { editing = !editing; picker = false; renderSheet(); }
+  else if (a === 'sym') { if (editing) { picker = !picker; renderSheet(); } }
+  else if (a === 'pick') { u.type = b.dataset.v; picker = false; commit(u); }
+  else if (a === 'ech') { u.ech = b.dataset.v; commit(u); }
+  else if (a === 'delunit') { units = units.filter(x => x.id !== u.id); closeSheet(); save(); syncUnits(); }
+});
+
+// 제목/현재원/총원 현재 위치에서 실시간 수정
+$('sheet').addEventListener('input', e => {
+  const f = e.target.dataset && e.target.dataset.f, u = byId(selectedId);
+  if (!f || !u) return;
+  const v = e.target.textContent;
+  if (f === 'name') u.name = v.slice(0, 30);
+  else u[f] = num(v.replace(/\D/g, ''));
+  save(); refreshHud(u);
+  if (f !== 'name') $('sheetHead').querySelector('.pv').textContent = pct(totals(u)) + '%';
+});
+$('sheet').addEventListener('keydown', e => {
+  if (e.key === 'Enter' && e.target.dataset && e.target.dataset.f) { e.preventDefault(); e.target.blur(); }
+});
+$('sheet').addEventListener('focusout', e => {
+  const f = e.target.dataset && e.target.dataset.f, u = byId(selectedId);
+  if (!f || !u) return;
+  if (f === 'name' && !u.name.trim()) { u.name = '새 부대'; e.target.textContent = u.name; save(); refreshHud(u); }
+  else if (f !== 'name') e.target.textContent = u[f];
 });
 
 function commit(u) { save(); refreshHud(u); renderSheet(); }
@@ -541,25 +595,6 @@ function dialog(title, html, onOk) {
   const close = () => { $('dlgwrap').classList.remove('on'); f.onsubmit = null; };
   $('dCancel').onclick = close;
   f.onsubmit = ev => { ev.preventDefault(); if (onOk(new FormData(f)) !== false) close(); };
-}
-
-function editUnit(id) {
-  const u = byId(id);
-  const opts = (o, v) => Object.entries(o).map(([k, l]) => `<option value="${k}"${k === v ? ' selected' : ''}>${esc(l)}</option>`).join('');
-  const hasSubs = u.subs.length > 0;
-  dialog('부대 편집',
-    `<label>부대명</label><input name="name" value="${esc(u.name)}" required maxlength="30">
-     <div class="two"><div><label>병과 (단대호)</label><select name="type">${opts(TYPES, u.type)}</select></div>
-     <div><label>제대</label><select name="ech">${opts(ECHELONS, u.ech)}</select></div></div>` +
-    (hasSubs ? '<label>현재원/총원은 예하 편제의 합계로 자동 계산됩니다</label>' :
-      `<div class="two"><div><label>현재원</label><input name="cur" type="number" min="0" value="${u.cur || 0}"></div>
-       <div><label>총원</label><input name="max" type="number" min="0" value="${u.max || 0}"></div></div>`),
-    fd => {
-      u.name = fd.get('name').trim() || u.name;
-      u.type = fd.get('type'); u.ech = fd.get('ech');
-      if (!hasSubs) { u.cur = num(fd.get('cur')); u.max = num(fd.get('max')); }
-      commit(u);
-    });
 }
 
 function editSub(uidv, sid) {
