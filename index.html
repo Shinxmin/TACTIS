@@ -55,12 +55,12 @@
   .btn.sm { padding: 4px 8px; font-size: 12px; }
 
   #banner { position: fixed; left: 50%; top: 56px; transform: translateX(-50%); background: #ffb300; color: #000;
-    padding: 8px 14px; border-radius: 20px; font-size: 14px; display: none; gap: 10px; align-items: center; z-index: 5; }
+    padding: 8px 14px; border-radius: 20px; font-size: 14px; white-space: nowrap; display: none; gap: 10px; align-items: center; z-index: 5; }
   #banner.on { display: flex; }
 
   #sheet { --ink: #14181d; --muted: #6b7480; --line: rgba(0,0,0,.1); --symh: 22px;
     position: fixed; left: 0; right: 0; bottom: 0; max-height: 72vh; display: flex; flex-direction: column;
-    color: var(--ink); background: rgba(255,255,255,.8); border-radius: 0;
+    color: var(--ink); background: rgba(255,255,255,.9); border-radius: 0;
     border-top: 1px solid rgba(0,0,0,.14); box-shadow: 0 -4px 18px rgba(0,0,0,.12);
     transform: translateY(105%); transition: transform .24s ease; z-index: 10;
     max-width: 640px; margin: 0 auto; }
@@ -73,17 +73,11 @@
   .title .symwrap { display: inline-flex; align-items: center; flex: none; padding-bottom: 1px; }
   .title svg { height: var(--symh); width: auto; display: block; }
   .title .tacts { margin-left: auto; display: flex; gap: 6px; }
-  .total { color: var(--muted); font-size: 12.5px; margin-top: 2px; font-variant-numeric: tabular-nums; }
-  .editing .nm-edit, .editing .symwrap { border-bottom: 1.5px solid var(--ink); cursor: text; }
-  .editing .symwrap { cursor: pointer; }
-  .editing .total [contenteditable] { border-bottom: 1px solid var(--muted); }
+  .total { color: var(--muted); font-size: 11px; margin-top: 2px; font-variant-numeric: tabular-nums; }
+  .editing .nm-edit, .editing .symwrap { background: rgba(0,0,0,.07); border-radius: 8px; padding: 2px 8px; cursor: text; }
+  .editing .symwrap { cursor: pointer; padding: 2px 8px 2px; }
   [contenteditable] { -webkit-user-select: text; user-select: text; outline: none; min-width: 1ch; }
-  .ic { width: 30px; height: 30px; border-radius: 50%; border: 1px solid rgba(0,0,0,.15); flex: none;
-    background: rgba(0,0,0,.05); color: var(--ink); display: inline-flex; align-items: center; justify-content: center;
-    padding: 0; cursor: pointer; }
-  .ic svg { width: 15px; height: 15px; display: block; }
-  .ic.on { background: var(--ink); color: #fff; }
-  .ic.del { color: var(--danger); background: rgba(201,55,44,.1); border-color: rgba(201,55,44,.3); }
+  #sheet .btn.sm { padding: 6px 12px; font-size: 11px; }
   .picker { position: absolute; top: -6px; height: calc(var(--symh) * 4); z-index: 3; padding: 6px 8px;
     background: rgba(255,255,255,.97); border: 1px solid rgba(0,0,0,.14); border-radius: 12px;
     box-shadow: 0 4px 16px rgba(0,0,0,.18); display: flex; flex-direction: column; gap: 6px; font-size: 10px; font-weight: 500; line-height: 1; }
@@ -94,29 +88,22 @@
   .picker .types button.on, .picker .echs button.on { background: rgba(0,0,0,.1); }
   .picker .echs button { flex: none; min-width: 36px; padding: 6px 8px; border: 1px solid rgba(0,0,0,.14); border-radius: 12px;
     background: none; color: var(--ink); font: inherit; font-size: 11px; cursor: pointer; }
-  #sheet .body { overflow-y: auto; padding: 8px 18px; flex: 1; }
+  #sheet .body { overflow-y: auto; padding: 8px 18px; flex: 1; font-size: 11px; }
   .block { border: 1px solid rgba(0,0,0,.12); background: rgba(255,255,255,.55); border-radius: 14px; padding: 10px 12px; margin: 8px 0; }
   .block .row { display: flex; align-items: center; gap: 8px; min-height: 30px; }
   .block .row b { font-weight: 600; }
   .block .cnt { color: var(--muted); font-variant-numeric: tabular-nums; }
   .block .acts { margin-left: auto; display: flex; gap: 6px; }
-  .block .eq { color: var(--muted); font-size: 13px; margin-top: 2px; }
+  .block .eq { color: var(--muted); margin-top: 2px; }
+  .block input { font: inherit; color: var(--ink); background: rgba(0,0,0,.06); border: 0; border-radius: 8px; padding: 6px 8px;
+    -webkit-user-select: text; user-select: text; min-width: 0; outline: none; }
+  .block input::placeholder { color: var(--muted); opacity: .8; }
+  .block .row input[data-f=name] { flex: 1; }
+  .block .row input.n { width: 56px; text-align: center; }
+  .block .eqin { width: 100%; margin-top: 6px; }
   .block .mini { height: 4px; background: rgba(0,0,0,.1); border-radius: 2px; margin-top: 8px; overflow: hidden; }
   .block .mini i { display: block; height: 100%; }
-  .empty { color: var(--muted); font-size: 14px; text-align: center; padding: 14px 0; }
-  #sheet footer { display: flex; gap: 8px; padding: 10px 18px; padding-bottom: max(10px, env(safe-area-inset-bottom));
-    border-top: 1px solid var(--line); flex: none; flex-wrap: wrap; align-items: center; }
-
-  #dlgwrap { position: fixed; inset: 0; background: rgba(0,0,0,.5); display: none; align-items: center;
-    justify-content: center; z-index: 20; padding: 16px; }
-  #dlgwrap.on { display: flex; }
-  #dlg { background: var(--panel); border-radius: 14px; padding: 16px; width: 100%; max-width: 380px; }
-  #dlg h2 { margin: 0 0 10px; font-size: 16px; }
-  #dlg label { display: block; font-size: 12px; color: var(--muted); margin: 10px 0 4px; }
-  #dlg input, #dlg select { -webkit-user-select: text; user-select: text; width: 100%; padding: 9px 10px; border: 1px solid var(--line); border-radius: 8px;
-    background: var(--bg); color: var(--ink); font: inherit; font-size: 15px; }
-  #dlg .two { display: flex; gap: 8px; } #dlg .two > div { flex: 1; }
-  #dlg .btns { display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px; }
+  .empty { color: var(--muted); text-align: left; padding: 14px 0; }
 </style>
 </head>
 <body>
@@ -127,7 +114,6 @@
 
 <div id="bar">
   <h1>TACTIS</h1>
-  <span class="scale" id="scaleInfo"></span>
   <button class="btn" id="fit">맞춤</button>
   <button class="btn primary" id="add">+ 부대</button>
   <button class="btn" id="reset" title="샘플 데이터로 초기화">⟲</button>
@@ -138,10 +124,8 @@
   <div class="grab"></div>
   <header id="sheetHead"></header>
   <div class="body" id="sheetBody"></div>
-  <footer id="sheetFoot"></footer>
 </div>
 
-<div id="dlgwrap"><form id="dlg"></form></div>
 
 <script>
 (() => {
@@ -151,7 +135,7 @@ const TILE = 100;          // 타일 한 칸 = 100m
 const N = 20;              // 20x20 타일 = 4km²
 const MAP = TILE * N;
 const BLD = 0.7;           // 건물은 타일의 70%
-const COMPACT_TILE_PX = 30; // 타일이 이 크기보다 작으면 간소화(단대호만)
+const COMPACT_TILE_PX = 20; // 타일이 이 크기보다 작으면 간소화(단대호만)
 const KEY = 'tactis.v1';
 
 const TYPES = { inf: '보병', mech: '기계화보병', armor: '기갑', arty: '포병', recon: '정찰', log: '군수', ad: '방공', eng: '공병', med: '의무', hq: '본부' };
@@ -193,8 +177,8 @@ const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': 
 const num = v => Math.max(0, Math.floor(Number(v) || 0));
 
 function totals(u) {
-  if (u.subs && u.subs.length) return u.subs.reduce((a, s) => ({ cur: a.cur + s.cur, max: a.max + s.max }), { cur: 0, max: 0 });
-  return { cur: u.cur || 0, max: u.max || 0 };
+  if (u.subs.length) return u.subs.reduce((a, s) => ({ cur: a.cur + s.cur, max: a.max + s.max }), { cur: 0, max: 0 });
+  return { cur: 0, max: 0 };
 }
 const pct = t => (t.max > 0 ? Math.round(t.cur / t.max * 100) : 0);
 const color = p => (p >= 70 ? '#8fd6a4' : p >= 40 ? '#f0cb7a' : '#ee9a92');
@@ -303,7 +287,6 @@ function render() {
   drawGrid();
   layout();
   vp.classList.toggle('compact', TILE * view.s < COMPACT_TILE_PX);
-  $('scaleInfo').textContent = `타일 ${Math.round(TILE * view.s)}px · 100m`;
 }
 
 // ---------- 뷰 조작 ----------
@@ -505,45 +488,38 @@ function closeSheet() {
   units.forEach(refreshHud);
 }
 
-const svgi = d => `<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">${d}</svg>`;
-const IC = {
-  edit: svgi('<path d="M2.5 13.5l.7-3L11 2.7a1.4 1.4 0 012 2L5.5 12.8z"/>'),
-  trash: svgi('<path d="M3 4.5h10M6.5 4.5V3h3v1.5M4.5 4.5l.6 8.5h5.8l.6-8.5"/>'),
+const blockHTML = s => {
+  const v = (f, ph, cls = '') => `<input data-f="${f}" ${cls ? `class="${cls}"` : ''} placeholder="${ph}" value="${s ? esc(s[f]) : ''}" autocomplete="off" maxlength="${f === 'equip' ? 60 : f === 'name' ? 30 : 7}"${f === 'cur' || f === 'max' ? ' inputmode="numeric"' : ''}>`;
+  return `<div class="block" data-sid="${s ? s.id : 'new'}"><div class="row">${v('name', '편제명')}` +
+    `${v('cur', '현재원', 'n')}<span>/</span>${v('max', '총원', 'n')}` +
+    `${s ? '<button class="btn primary sm" data-a="delsub">삭제</button>' : ''}</div>${v('equip', '장비 (예: 전차 12대, 장갑차 10대)', 'eqin')}${s ? miniHTML(s) : ''}</div>`;
 };
-
-const ce = (f, v) => `<span ${editing ? `contenteditable="plaintext-only" data-f="${f}"` : ''}>${esc(v)}</span>`;
+const miniHTML = s => { const p = pct(s); return `<div class="mini"><i style="width:${Math.min(100, p)}%;background:${color(p)}"></i></div>`; };
 
 function renderSheet() {
   const u = byId(selectedId);
   if (!u) return closeSheet();
-  const t = totals(u), auto = u.subs.length > 0;
+  const t = totals(u);
   $('sheet').classList.toggle('editing', editing);
-  const cnt = (editing && !auto)
-    ? `(<span contenteditable="plaintext-only" inputmode="numeric" data-f="cur">${t.cur}</span>/<span contenteditable="plaintext-only" inputmode="numeric" data-f="max">${t.max}</span>)`
-    : `(${t.cur}/${t.max})`;
   $('sheetHead').innerHTML =
     `<div class="title"><span class="nm-edit" ${editing ? 'contenteditable="plaintext-only" data-f="name"' : ''}>${esc(u.name)}</span>` +
     `<span class="symwrap" data-a="sym">${symbolSVG(u.type, u.ech)}</span>` +
-    `<span class="tacts"><button class="ic${editing ? ' on' : ''}" data-a="editunit" aria-label="수정">${IC.edit}</button>` +
-    `<button class="ic del" data-a="delunit" aria-label="삭제">${IC.trash}</button></span>` +
+    `<span class="tacts"><button class="btn primary sm" data-a="editunit">${editing ? '완료' : '수정'}</button>` +
+    `<button class="btn primary sm" data-a="delunit">삭제</button></span>` +
     (editing && picker ? `<div class="picker">
       <div class="types">${Object.entries(TYPES).map(([k, l]) => `<button data-a="pick" data-v="${k}" class="${k === u.type ? 'on' : ''}">${symbolSVG(k, '')}<span>${l}</span></button>`).join('')}</div>
       <div class="echs">${Object.entries(ECHELONS).map(([k, l]) => `<button data-a="ech" data-v="${k}" class="${k === u.ech ? 'on' : ''}">${l}</button>`).join('')}</div></div>` : '') +
-    `</div><div class="total"><span class="cn">${cnt}</span> <span class="pv">${pct(t)}%</span></div>`;
+    `</div><div class="total"><span class="cn">(${t.cur}/${t.max})</span> <span class="pv">${pct(t)}%</span></div>`;
   if (editing && picker) {
     const title = $('sheetHead').querySelector('.title'), sym = title.querySelector('.symwrap'), pk = title.querySelector('.picker');
     const left = sym.getBoundingClientRect().right - title.getBoundingClientRect().left + 10;
     pk.style.left = left + 'px'; pk.style.width = (title.clientWidth - left) + 'px';
   }
-  $('sheetBody').innerHTML = (u.subs.length ? u.subs.map(s => {
-    const p = pct(s);
-    return `<div class="block" data-sid="${s.id}">
-      <div class="row"><b>${esc(s.name)}</b><span class="cnt">(${s.cur}/${s.max})</span>
-        <span class="acts"><button class="ic" data-a="editsub" aria-label="수정">${IC.edit}</button><button class="ic del" data-a="delsub" aria-label="삭제">${IC.trash}</button></span></div>
-      ${s.equip ? `<div class="eq">[${esc(s.equip)}]</div>` : ''}
-      <div class="mini"><i style="width:${Math.min(100, p)}%;background:${color(p)}"></i></div></div>`;
-  }).join('') : '<div class="empty">예하 편제가 없습니다</div>');
-  $('sheetFoot').innerHTML = `<button class="btn primary" data-a="addsub">+ 편제 추가</button>`;
+  $('sheetBody').innerHTML = editing
+    ? u.subs.map(blockHTML).join('') + blockHTML(null)
+    : (u.subs.length ? u.subs.map(s => `<div class="block"><div class="row"><b>${esc(s.name)}</b><span class="cnt">(${s.cur}/${s.max})</span></div>` +
+        `${s.equip ? `<div class="eq">[${esc(s.equip)}]</div>` : ''}${miniHTML(s)}</div>`).join('')
+      : '<div class="empty">편제가 설정되지 않았습니다</div>');
 }
 
 $('sheet').addEventListener('click', e => {
@@ -554,9 +530,7 @@ $('sheet').addEventListener('click', e => {
   if (!b) return;
   const a = b.dataset.a;
   const sid = b.closest('.block') && b.closest('.block').dataset.sid;
-  if (a === 'addsub') editSub(u.id, null);
-  else if (a === 'editsub') editSub(u.id, sid);
-  else if (a === 'delsub') { u.subs = u.subs.filter(x => x.id !== sid); commit(u); }
+  if (a === 'delsub') { u.subs = u.subs.filter(x => x.id !== sid); commit(u); }
   else if (a === 'editunit') { editing = !editing; picker = false; renderSheet(); }
   else if (a === 'sym') { if (editing) { picker = !picker; renderSheet(); } }
   else if (a === 'pick') { u.type = b.dataset.v; picker = false; commit(u); }
@@ -564,54 +538,49 @@ $('sheet').addEventListener('click', e => {
   else if (a === 'delunit') { units = units.filter(x => x.id !== u.id); closeSheet(); save(); syncUnits(); }
 });
 
-// 제목/현재원/총원 현재 위치에서 실시간 수정
+// 제목과 편제를 현재 위치에서 실시간 수정 (입력 즉시 자동 저장)
+function syncTotals(u, blk, sub) {
+  const t = totals(u), hd = $('sheetHead');
+  hd.querySelector('.cn').textContent = `(${t.cur}/${t.max})`;
+  hd.querySelector('.pv').textContent = pct(t) + '%';
+  const m = blk && blk.querySelector('.mini');
+  if (m && sub) m.outerHTML = miniHTML(sub);
+}
+
 $('sheet').addEventListener('input', e => {
-  const f = e.target.dataset && e.target.dataset.f, u = byId(selectedId);
+  const el = e.target, f = el.dataset && el.dataset.f, u = byId(selectedId);
   if (!f || !u) return;
-  const v = e.target.textContent;
-  if (f === 'name') u.name = v.slice(0, 30);
-  else u[f] = num(v.replace(/\D/g, ''));
-  save(); refreshHud(u);
-  if (f !== 'name') $('sheetHead').querySelector('.pv').textContent = pct(totals(u)) + '%';
+  if (el.tagName !== 'INPUT') {                       // 부대 이름
+    u.name = el.textContent.slice(0, 30);
+    save(); refreshHud(u);
+    return;
+  }
+  const blk = el.closest('.block');
+  let v = el.value;
+  if (f === 'cur' || f === 'max') { v = v.replace(/\D/g, ''); if (v !== el.value) el.value = v; }
+  let sub = u.subs.find(x => x.id === blk.dataset.sid);
+  if (!sub) {                                         // 빈 편성 칸에 첫 입력 → 편제 생성, 새 빈 칸 추가
+    sub = { id: nid(), name: '', cur: 0, max: 0, equip: '' };
+    u.subs.push(sub);
+    blk.dataset.sid = sub.id;
+    blk.querySelector('.row').insertAdjacentHTML('beforeend', '<button class="btn primary sm" data-a="delsub">삭제</button>');
+    blk.insertAdjacentHTML('beforeend', miniHTML(sub));
+    blk.insertAdjacentHTML('afterend', blockHTML(null));
+  }
+  sub[f] = (f === 'cur' || f === 'max') ? num(v) : v;
+  save(); refreshHud(u); syncTotals(u, blk, sub);
 });
 $('sheet').addEventListener('keydown', e => {
   if (e.key === 'Enter' && e.target.dataset && e.target.dataset.f) { e.preventDefault(); e.target.blur(); }
 });
 $('sheet').addEventListener('focusout', e => {
-  const f = e.target.dataset && e.target.dataset.f, u = byId(selectedId);
-  if (!f || !u) return;
-  if (f === 'name' && !u.name.trim()) { u.name = '새 부대'; e.target.textContent = u.name; save(); refreshHud(u); }
-  else if (f !== 'name') e.target.textContent = u[f];
+  const u = byId(selectedId);
+  if (u && e.target.tagName !== 'INPUT' && e.target.dataset && e.target.dataset.f === 'name' && !u.name.trim()) {
+    u.name = '새 부대'; e.target.textContent = u.name; save(); refreshHud(u);
+  }
 });
 
 function commit(u) { save(); refreshHud(u); renderSheet(); }
-
-// ---------- 편집 다이얼로그 ----------
-function dialog(title, html, onOk) {
-  const f = $('dlg');
-  f.innerHTML = `<h2>${esc(title)}</h2>${html}<div class="btns"><button type="button" class="btn" id="dCancel">취소</button><button class="btn primary">저장</button></div>`;
-  $('dlgwrap').classList.add('on');
-  const first = f.querySelector('input'); if (first) first.focus();
-  const close = () => { $('dlgwrap').classList.remove('on'); f.onsubmit = null; };
-  $('dCancel').onclick = close;
-  f.onsubmit = ev => { ev.preventDefault(); if (onOk(new FormData(f)) !== false) close(); };
-}
-
-function editSub(uidv, sid) {
-  const u = byId(uidv);
-  const s = sid ? u.subs.find(x => x.id === sid) : { name: '', cur: 0, max: 0, equip: '' };
-  dialog(sid ? '편제 수정' : '편제 추가',
-    `<label>편제명</label><input name="name" value="${esc(s.name)}" required maxlength="30" placeholder="예: 보병중대">
-     <div class="two"><div><label>현재원</label><input name="cur" type="number" min="0" value="${s.cur}"></div>
-     <div><label>총원</label><input name="max" type="number" min="0" value="${s.max}"></div></div>
-     <label>장비 (선택)</label><input name="equip" value="${esc(s.equip)}" placeholder="전차 12대, 장갑차 10대">`,
-    fd => {
-      const v = { name: fd.get('name').trim(), cur: num(fd.get('cur')), max: num(fd.get('max')), equip: fd.get('equip').trim() };
-      if (!v.name) return false;
-      if (sid) Object.assign(s, v); else u.subs.push({ id: nid(), ...v });
-      commit(u);
-    });
-}
 
 // ---------- init ----------
 sizeCanvas();
