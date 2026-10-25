@@ -17,7 +17,7 @@
     --accent: #2d6cdf;
     --danger: #c9372c;
   }
-  * { box-sizing: border-box; }
+  * { box-sizing: border-box; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; -webkit-tap-highlight-color: transparent; }
   html { background: #fff; }
   html, body { margin: 0; height: 100%; overflow: hidden; background: #fff; color: var(--ink);
     font-family: -apple-system, "Apple SD Gothic Neo", "Noto Sans KR", "Malgun Gothic", system-ui, sans-serif; }
@@ -28,6 +28,9 @@
 
   .unit { position: absolute; left: 0; top: 0; cursor: pointer; }
   .bld { position: absolute; left: 15%; top: 15%; width: 70%; height: 70%; background: #000; }
+  .unit.lift { z-index: 5; }
+  .unit.lift .bld { opacity: .75; box-shadow: 0 4px 12px rgba(0,0,0,.35); }
+  .unit.lift.bad .bld { background: #b3261e; }
   .unit.sel .bld { outline: 3px solid #6b6f76; outline-offset: 2px; }
   .hud { position: absolute; left: 50%; bottom: 85%; margin-bottom: 5px; transform: translateX(-50%);
     display: flex; align-items: center; gap: 6px; white-space: nowrap; height: 20px;
@@ -102,7 +105,7 @@
   #dlg { background: var(--panel); border-radius: 14px; padding: 16px; width: 100%; max-width: 380px; }
   #dlg h2 { margin: 0 0 10px; font-size: 16px; }
   #dlg label { display: block; font-size: 12px; color: var(--muted); margin: 10px 0 4px; }
-  #dlg input, #dlg select { width: 100%; padding: 9px 10px; border: 1px solid var(--line); border-radius: 8px;
+  #dlg input, #dlg select { -webkit-user-select: text; user-select: text; width: 100%; padding: 9px 10px; border: 1px solid var(--line); border-radius: 8px;
     background: var(--bg); color: var(--ink); font: inherit; font-size: 15px; }
   #dlg .two { display: flex; gap: 8px; } #dlg .two > div { flex: 1; }
   #dlg .btns { display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px; }
@@ -173,7 +176,7 @@ const save = () => { try { localStorage.setItem(KEY, JSON.stringify(units)); } c
 
 const view = { s: 1, ox: 0, oy: 0 };       // s: px per meter
 let selectedId = null;
-let mode = null;                            // {kind:'add'|'move', id?}
+let mode = null;                            // {kind:'add'}
 
 const $ = id => document.getElementById(id);
 const vp = $('viewport'), canvas = $('grid'), layer = $('units');
@@ -281,6 +284,7 @@ function layout() {
   const tp = TILE * view.s;
   for (const u of units) {
     const el = ensureEl(u);
+    if (drag && drag.id === u.id) { el.style.width = el.style.height = tp + 'px'; continue; }
     el.style.width = el.style.height = tp + 'px';
     el.style.transform = `translate(${view.ox + u.x * tp}px,${view.oy + u.y * tp}px)`;
   }
@@ -324,13 +328,52 @@ function zoomAt(px, py, k) {
 
 const ptrs = new Map();
 let gesture = null;
+let drag = null;               // 꾹 눌러 이동 중인 부대 {id, el, tile, ok}
+const HOLD_MS = 450;
+
+function startDrag(g) {
+  const u = byId(g.holdId);
+  if (!u || !gesture || gesture !== g) return;
+  g.moved = true;
+  drag = { id: u.id, el: ensureEl(u), tile: { x: u.x, y: u.y }, ok: true };
+  drag.el.classList.add('lift');
+  closeSheet();
+  try { vp.setPointerCapture(g.pid); } catch (e) {}
+  if (navigator.vibrate) navigator.vibrate(15);
+}
+
+function dragTo(px, py) {
+  const t = tileAt(px, py);
+  if (!t) return;
+  drag.tile = t;
+  drag.ok = !unitAtTile(t.x, t.y, drag.id);
+  const tp = TILE * view.s;
+  drag.el.style.transform = `translate(${view.ox + t.x * tp}px,${view.oy + t.y * tp}px)`;
+  drag.el.classList.toggle('bad', !drag.ok);
+}
+
+function endDrag() {
+  const u = byId(drag.id);
+  if (drag.ok && (u.x !== drag.tile.x || u.y !== drag.tile.y)) { u.x = drag.tile.x; u.y = drag.tile.y; save(); }
+  drag.el.classList.remove('lift', 'bad');
+  drag = null;
+  layout();
+}
 
 vp.addEventListener('pointerdown', e => {
   ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY });
   if (ptrs.size === 1) {
-    gesture = { moved: false, sx: e.clientX, sy: e.clientY, target: e.target, pinch: null };
+    gesture = { moved: false, sx: e.clientX, sy: e.clientY, target: e.target, pinch: null, pid: e.pointerId };
+    const ue = !mode && e.target.closest && e.target.closest('.unit');
+    if (ue) {
+      const g = gesture;
+      g.holdId = ue.dataset.id;
+      g.timer = setTimeout(() => startDrag(g), HOLD_MS);
+    }
   } else if (ptrs.size === 2) {
     const [a, b] = [...ptrs.values()];
+    clearTimeout(gesture.timer);
+    if (drag) endDrag();
     gesture.pinch = { d: Math.hypot(a.x - b.x, a.y - b.y) };
     gesture.moved = true;
   }
@@ -339,6 +382,7 @@ vp.addEventListener('pointerdown', e => {
 vp.addEventListener('pointermove', e => {
   const p = ptrs.get(e.pointerId);
   if (!p || !gesture) return;
+  if (drag) { dragTo(e.clientX, e.clientY); return; }
   if (ptrs.size === 2 && gesture.pinch) {
     p.x = e.clientX; p.y = e.clientY;
     const [a, b] = [...ptrs.values()];
@@ -350,6 +394,7 @@ vp.addEventListener('pointermove', e => {
   if (ptrs.size !== 1) return;
   const dx = e.clientX - p.x, dy = e.clientY - p.y;
   if (!gesture.moved && Math.hypot(e.clientX - gesture.sx, e.clientY - gesture.sy) < 6) return;
+  clearTimeout(gesture.timer);
   if (!gesture.moved) { gesture.moved = true; vp.classList.add('dragging'); vp.setPointerCapture(e.pointerId); }
   p.x = e.clientX; p.y = e.clientY;
   view.ox += dx; view.oy += dy;
@@ -363,6 +408,8 @@ function endPtr(e) {
   vp.classList.remove('dragging');
   if (ptrs.size === 0 && gesture) {
     const g = gesture; gesture = null;
+    clearTimeout(g.timer);
+    if (drag) endDrag();
     if (!g.moved && e.type === 'pointerup') tap(e, g.target);
   } else if (ptrs.size === 1 && gesture) {
     gesture.pinch = null;
@@ -378,6 +425,8 @@ vp.addEventListener('wheel', e => {
   zoomAt(e.clientX, e.clientY, Math.exp(-e.deltaY * 0.0015));
 }, { passive: false });
 
+['copy', 'cut', 'paste', 'contextmenu', 'selectstart', 'dragstart'].forEach(t => document.addEventListener(t, e => e.preventDefault()));
+
 addEventListener('resize', () => { sizeCanvas(); clampView(); render(); });
 
 function tileAt(px, py) {
@@ -392,16 +441,9 @@ function tap(e, target) {
     const t = tileAt(e.clientX, e.clientY);
     if (!t) return;
     if (unitAtTile(t.x, t.y, mode.id)) { flash('이미 부대가 있는 타일입니다'); return; }
-    if (mode.kind === 'add') {
-      const u = { id: nid(), name: '새 부대', x: t.x, y: t.y, type: 'inf', ech: 'II', subs: [] };
-      units.push(u);
-      setMode(null); save(); syncUnits(); openSheet(u.id); editUnit(u.id);
-    } else {
-      const u = byId(mode.id);
-      u.x = t.x; u.y = t.y;
-      const id = mode.id;
-      setMode(null); save(); layout(); openSheet(id);
-    }
+    const u = { id: nid(), name: '새 부대', x: t.x, y: t.y, type: 'inf', ech: 'II', subs: [] };
+    units.push(u);
+    setMode(null); save(); syncUnits(); openSheet(u.id); editUnit(u.id);
     return;
   }
   const el = target.closest && target.closest('.unit');
@@ -414,7 +456,7 @@ let flashTimer;
 function setMode(m) {
   mode = m;
   $('banner').classList.toggle('on', !!m);
-  if (m) $('bannerText').textContent = m.kind === 'add' ? '부대를 둘 타일을 터치하세요' : '이동할 타일을 터치하세요';
+  if (m) $('bannerText').textContent = '부대를 둘 타일을 터치하세요';
 }
 function flash(msg) {
   $('banner').classList.add('on');
@@ -422,7 +464,7 @@ function flash(msg) {
   clearTimeout(flashTimer);
   flashTimer = setTimeout(() => setMode(mode), 1400);
 }
-$('bannerCancel').onclick = () => { const id = mode && mode.id; setMode(null); if (id) openSheet(id); };
+$('bannerCancel').onclick = () => setMode(null);
 $('add').onclick = () => { closeSheet(); setMode({ kind: 'add' }); };
 $('fit').onclick = fit;
 $('reset').onclick = () => {
@@ -466,7 +508,7 @@ function renderSheet() {
   }).join('') : '<div class="empty">예하 편제가 없습니다</div>');
   $('sheetFoot').innerHTML =
     `<button class="btn primary" data-a="addsub">+ 편제 추가</button><span class="grow"></span>` +
-    `<button class="btn" data-a="editunit">부대 편집</button><button class="btn" data-a="move">이동</button>` +
+    `<button class="btn" data-a="editunit">부대 편집</button>` +
     `<button class="btn danger" data-a="delunit">부대 삭제</button>`;
 }
 
@@ -483,7 +525,6 @@ $('sheet').addEventListener('click', e => {
     if (confirm(`'${s.name}' 편제를 삭제할까요?`)) { u.subs = u.subs.filter(x => x.id !== sid); commit(u); }
   }
   else if (a === 'editunit') editUnit(u.id);
-  else if (a === 'move') { const id = u.id; closeSheet(); setMode({ kind: 'move', id }); }
   else if (a === 'delunit') {
     if (confirm(`'${u.name}' 부대를 삭제할까요?`)) { units = units.filter(x => x.id !== u.id); closeSheet(); save(); syncUnits(); }
   }
