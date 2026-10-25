@@ -77,7 +77,7 @@
   .editing .nm-edit, .editing .symwrap { background: rgba(0,0,0,.07); border-radius: 8px; padding: 2px 8px; cursor: text; }
   .editing .symwrap { cursor: pointer; padding: 2px 8px 2px; }
   [contenteditable] { -webkit-user-select: text; user-select: text; outline: none; min-width: 1ch; }
-  #sheet .btn.sm { height: 14px; padding: 0 12px; font-size: 11px; line-height: 1; border-radius: 7px; background: #000; border-color: #000; color: #fff; display: inline-flex; align-items: center; }
+  #sheet .btn.sm { height: 25px; padding: 0 12px; font-size: 11px; line-height: 1; border-radius: 7px; background: #000; border-color: #000; color: #fff; display: inline-flex; align-items: center; }
   .picker { position: absolute; top: -6px; height: calc(var(--symh) * 4); z-index: 3; padding: 6px 8px;
     background: rgba(255,255,255,.97); border: 1px solid rgba(0,0,0,.14); border-radius: 12px;
     box-shadow: 0 4px 16px rgba(0,0,0,.18); display: flex; flex-direction: column; gap: 6px; font-size: 10px; font-weight: 500; line-height: 1; }
@@ -99,6 +99,8 @@
     -webkit-user-select: text; user-select: text; min-width: 0; outline: none; }
   .block input::placeholder { color: var(--muted); opacity: .8; }
   .block .row input[data-f=name] { flex: 1; }
+  .block .nums { flex: none; display: inline-flex; align-items: center; background: rgba(0,0,0,.06); border-radius: 8px; }
+  .block .nums input { background: none; }
   .block .row input.n { width: 39px; padding-left: 2px; padding-right: 2px; text-align: center; }
   .block .eqin { width: 100%; margin-top: 6px; }
   .block .mini { height: 4px; background: rgba(0,0,0,.1); border-radius: 2px; margin-top: 8px; overflow: hidden; }
@@ -493,8 +495,8 @@ function closeSheet() {
 const blockHTML = s => {
   const v = (f, ph, cls = '') => `<input data-f="${f}" ${cls ? `class="${cls}"` : ''} placeholder="${ph}" value="${s ? esc(s[f]) : ''}" autocomplete="off" maxlength="${f === 'equip' ? 60 : f === 'name' ? 30 : 7}"${f === 'cur' || f === 'max' ? ' inputmode="numeric"' : ''}>`;
   return `<div class="block" data-sid="${s ? s.id : 'new'}"><div class="row">${v('name', '이름')}` +
-    `${v('cur', '인원', 'n')}<span>/</span>${v('max', '', 'n')}` +
-    `${s ? '<button class="btn primary sm" data-a="delsub">삭제</button>' : ''}</div>${v('equip', '장비 (선택)', 'eqin')}${s ? miniHTML(s) : ''}</div>`;
+    `<span class="nums">${v('cur', '인원', 'n')}<span>/</span>${v('max', '', 'n')}</span>` +
+    `${s ? '<button class="btn primary sm" data-a="delsub">삭제</button>' : ''}</div>${v('equip', '장비', 'eqin')}${s ? miniHTML(s) : ''}</div>`;
 };
 const miniHTML = s => { const p = pct(s); return `<div class="mini"><i style="width:${Math.min(100, p)}%;background:${color(p)}"></i></div>`; };
 
