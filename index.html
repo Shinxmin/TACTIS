@@ -114,6 +114,7 @@
   .sup svg { height: 16px; width: auto; flex: none; display: block; }
   .sup .btn { margin-top: 6px; }
   .sup.blank { background: rgba(0,0,0,.05); border-style: dashed; color: var(--muted); cursor: pointer; }
+  .block.none { align-items: center; justify-content: center; color: var(--muted); text-align: center; }
   .sup.none { align-items: center; justify-content: center; color: var(--muted); text-align: center; }
   .suplist { margin-top: 6px; border: 1px solid rgba(0,0,0,.12); border-radius: 14px; overflow: hidden; background: rgba(255,255,255,.8); }
   .suplist button { display: block; width: 100%; padding: 8px 10px; border: 0; border-bottom: 1px solid rgba(0,0,0,.08); background: none;
@@ -560,7 +561,7 @@ function renderSheet() {
     ? u.subs.map(blockHTML).join('') + blockHTML(null)
     : (u.subs.length ? u.subs.map(s => `<div class="block"><div class="row v"><b>${esc(s.name)}</b><span class="cnt">(${s.cur}/${s.max})</span></div>` +
         `${s.equip ? `<div class="eq">${esc(s.equip)}</div>` : ''}${miniHTML(s)}</div>`).join('')
-      : '<div class="empty">편제가 설정되지 않았습니다</div>');
+      : '<div class="block none">편제 부대 없음</div>');
   $('sheetBody').innerHTML = `<div class="cols"><div class="subs">${subsHTML}</div><div class="sups">${supHTML(u)}</div></div>`;
   requestAnimationFrame(updateMore);
 }
