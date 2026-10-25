@@ -30,19 +30,19 @@
   .bld { position: absolute; left: 15%; top: 15%; width: 70%; height: 70%; background: #000; }
   .unit.sel .bld { outline: 3px solid #6b6f76; outline-offset: 2px; }
   .hud { position: absolute; left: 50%; bottom: 85%; margin-bottom: 5px; transform: translateX(-50%);
-    display: flex; align-items: center; gap: 6px; white-space: nowrap; height: 24px;
+    display: flex; align-items: center; gap: 6px; white-space: nowrap; height: 20px;
     font-size: 12px; line-height: 1; color: #000;
     text-shadow: 0 0 3px #fff, 0 0 3px #fff, 0 0 2px #fff; }
-  .hud svg { display: block; height: 24px; width: auto; flex: none; }
+  .hud svg { display: block; height: 20px; width: auto; flex: none; }
   .hud .nm { font-weight: 600; }
-  .hud .bar { display: flex; align-items: flex-end; width: 5px; height: 24px; background: #e3e5e8;
+  .hud .bar { display: flex; align-items: flex-end; width: 5px; height: 20px; background: #e3e5e8;
     border-radius: 3px; overflow: hidden; flex: none; }
   .hud .bar i { display: block; width: 100%; height: 0; border-radius: 3px; }
   .hud .pc { font-variant-numeric: tabular-nums; font-size: 12px; font-weight: 600; }
   /* 타일 30px 미만: 간소화 (단대호만) */
-  #viewport.compact .hud { height: 18px; }
+  #viewport.compact .hud { height: 16px; }
   #viewport.compact .hud .nm, #viewport.compact .hud .bar, #viewport.compact .hud .pc { display: none; }
-  #viewport.compact .hud svg { height: 18px; }
+  #viewport.compact .hud svg { height: 16px; }
 
   #bar { position: fixed; top: 0; left: 0; right: 0; display: flex; align-items: center; gap: 8px;
     padding: 8px 12px; padding-top: max(8px, env(safe-area-inset-top)); pointer-events: none; }
@@ -74,7 +74,7 @@
   #sheet .grab { width: 40px; height: 4px; border-radius: 2px; background: rgba(255,255,255,.4); margin: 8px auto 0; flex: none; }
   #sheet header { padding: 8px 18px 12px; border-bottom: 1px solid var(--line); flex: none; }
   .title { display: flex; align-items: center; gap: 8px; font-size: 18px; font-weight: 700; line-height: 30px; }
-  .title svg { height: 30px; width: auto; flex: none; }
+  .title svg { height: 22px; width: auto; flex: none; }
   .total { color: var(--muted); font-size: 14px; margin-top: 2px; font-variant-numeric: tabular-nums; }
   .ic { width: 30px; height: 30px; border-radius: 50%; border: 1px solid rgba(255,255,255,.28); flex: none;
     background: rgba(255,255,255,.16); color: #fff; display: inline-flex; align-items: center; justify-content: center;
@@ -190,15 +190,16 @@ const color = p => (p >= 70 ? '#8fd6a4' : p >= 40 ? '#f0cb7a' : '#ee9a92');
 
 // ---------- 단대호 (군대부호) ----------
 function symbolSVG(type, ech) {
+  // 메인 블럭(30x20)이 SVG 박스 전체. 제대 부호(X, II 등)는 박스 밖 위쪽에 따로 그려 정렬 기준에서 제외한다.
   const st = 'stroke="#000" stroke-width="1.1" stroke-linecap="round" stroke-linejoin="round" fill="none"';
   let inner = '';
-  if (type === 'inf' || type === 'mech') inner += `<path d="M8 14L28 27M28 14L8 27" ${st}/>`;
-  if (type === 'armor' || type === 'mech') inner += `<ellipse cx="18" cy="20.5" rx="9" ry="5.5" ${st}/>`;
-  if (type === 'arty') inner += '<circle cx="18" cy="20.5" r="3.4" fill="#000"/>';
-  if (type === 'recon') inner += `<path d="M8 27L28 14" ${st}/>`;
-  if (type === 'hq') inner += `<path d="M13 27V14h9l-2 3 2 3h-9" ${st}/>`;
-  const e = ech ? `<text x="18" y="8" font-size="9" font-weight="700" text-anchor="middle" fill="#000" font-family="sans-serif">${esc(ech)}</text>` : '';
-  return `<svg viewBox="0 0 36 31" xmlns="http://www.w3.org/2000/svg">${e}<rect x="3" y="10" width="30" height="20" rx="6" ry="6" fill="#fff" stroke="#000" stroke-width="1.1"/>${inner}</svg>`;
+  if (type === 'inf' || type === 'mech') inner += `<path d="M6 5L26 18M26 5L6 18" ${st}/>`;
+  if (type === 'armor' || type === 'mech') inner += `<ellipse cx="16" cy="11.5" rx="9" ry="5.5" ${st}/>`;
+  if (type === 'arty') inner += '<circle cx="16" cy="11.5" r="3.4" fill="#000"/>';
+  if (type === 'recon') inner += `<path d="M6 18L26 5" ${st}/>`;
+  if (type === 'hq') inner += `<path d="M11 18V5h9l-2 3 2 3h-9" ${st}/>`;
+  const e = ech ? `<text x="16" y="-1.5" font-size="9" font-weight="700" text-anchor="middle" fill="#000" font-family="sans-serif">${esc(ech)}</text>` : '';
+  return `<svg viewBox="0 0 32 22" xmlns="http://www.w3.org/2000/svg" style="overflow:visible">${e}<rect x="1" y="1" width="30" height="20" rx="6" ry="6" fill="#fff" stroke="#000" stroke-width="1.1"/>${inner}</svg>`;
 }
 
 // ---------- 맵 렌더링 ----------
