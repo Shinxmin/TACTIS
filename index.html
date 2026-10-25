@@ -568,6 +568,7 @@ function renderSheet() {
 
 // ---- 지원부대 (미소속 군수/공병/의무 건물만 연결 가능)
 const SUP_TYPES = ['log', 'eng', 'med'];
+const SUP_LABEL = { log: '군수지원', eng: '공병', med: '의무' };
 const dependsOn = (x, id) => x.support.some(i => i === id || (byId(i) && dependsOn(byId(i), id)));
 function supCandidates(u) {
   const taken = new Set(units.flatMap(x => x.support));
@@ -575,7 +576,7 @@ function supCandidates(u) {
 }
 function supHTML(u) {
   const linked = u.support.map(byId).filter(Boolean).map(x =>
-    `<div class="block sup"${editing ? '' : ` data-a="gosup" data-uid="${x.id}" style="cursor:pointer"`}><div class="row"><b>${esc(x.name)}</b>${symbolSVG(x.type, x.ech)}</div>` +
+    `<div class="block sup"${editing ? '' : ` data-a="gosup" data-uid="${x.id}" style="cursor:pointer"`}><div class="row"><b>${SUP_LABEL[x.type] || TYPES[x.type]}</b>${symbolSVG(x.type, x.ech)}</div>` +
     `${editing ? `<button class="btn primary sm" data-a="delsup" data-uid="${x.id}">삭제</button>` : ''}</div>`).join('');
   if (!editing) return linked || '<div class="block sup none">지원 부대 없음</div>';
   const c = supCandidates(u);
