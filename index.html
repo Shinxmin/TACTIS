@@ -531,8 +531,13 @@ function renderSheet() {
     `</div><div class="total"><span class="cn">(${t.cur}/${t.max})</span> <span class="pv">${pct(t)}%</span></div>`;
   if (editing && picker) {
     const title = $('sheetHead').querySelector('.title'), sym = title.querySelector('.symwrap'), pk = title.querySelector('.picker');
-    const left = sym.getBoundingClientRect().right - title.getBoundingClientRect().left + 10;
-    pk.style.left = left + 'px'; pk.style.width = (title.clientWidth - left) + 'px';
+    const tr = title.getBoundingClientRect(), sr = sym.getBoundingClientRect();
+    const right = sr.right - tr.left + 10;
+    if (title.clientWidth - right < W * 0.4) {      // 오른쪽 공간이 화면 가로폭의 40% 미만이면 왼쪽으로 연다
+      pk.style.left = '0px'; pk.style.width = Math.max(0, sr.left - tr.left - 10) + 'px';
+    } else {
+      pk.style.left = right + 'px'; pk.style.width = (title.clientWidth - right) + 'px';
+    }
   }
   const subsHTML = editing
     ? u.subs.map(blockHTML).join('') + blockHTML(null)
