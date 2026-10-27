@@ -249,6 +249,9 @@ function symbolSVG(type, ech) {
 const TKEY = 'tactis.terrain';
 const TG = 200;                 // 고도 격자 200x200 (10m 간격)
 const MTN_MIN = 50, MTN_MAX = 200, CI = 10;
+const CELL_M = MAP / TG;          // 격자 한 칸 = 10m
+const MIN_MTN_M2 = TILE * TILE;   // 산지 최소 면적: 타일 1칸(100m x 100m)
+const MAX_SLOPE = 0.5;            // 최대 평균 경사 (높이/수평거리 ≈ 27°)
 let terrainCfg = null, terrain = null;
 try { terrainCfg = JSON.parse(localStorage.getItem(TKEY)); } catch (e) {}
 
@@ -269,36 +272,46 @@ function heightField(seed, ratio) {
     const a = hash(xi, yi, o), b = hash(xi + 1, yi, o), c = hash(xi, yi + 1, o), d = hash(xi + 1, yi + 1, o);
     return a + (b - a) * u + (c - a) * v + (a - b - c + d) * u * v;
   };
-  const OCT = [[56, 1], [28, .5], [14, .25], [7, .125]];
+  // 지형 굴곡 크기를 미터로 지정 (600m 산줄기 ~ 75m 잔굴곡)
+  const OCT = [[600, 1], [300, .5], [150, .25], [75, .125]].map(([m, a]) => [m / CELL_M, a]);
   for (let j = 0; j < S; j++) for (let i = 0; i < S; i++) {
     let v = 0;
     OCT.forEach(([f, a], o) => { v += a * vnoise(i / f, j / f, o); });
     n[j * S + i] = v / 1.875;
   }
 
-  // 설정 비중만큼 산지가 되도록 임계값을 분위수로 결정
+  // 설정 비중만큼 산지가 되도록 임계값을 분위수로 결정.
+  // 타일 1칸보다 작은 조각은 평지로 돌리고, 그만큼 줄어든 비중을 한 번 더 보정한다.
   const sorted = Float32Array.from(n).sort();
-  const tau = ratio >= 1 ? -Infinity : sorted[Math.min(S * S - 1, Math.floor((1 - ratio) * S * S))];
   const m = new Uint8Array(S * S);
-  for (let k = 0; k < m.length; k++) m[k] = n[k] >= tau ? 1 : 0;
-
-  // 산지 덩어리별 라벨링 (너무 작은 조각은 평지로)
-  const lab = new Int32Array(S * S).fill(-1), comps = [];
-  for (let k = 0; k < m.length; k++) {
-    if (!m[k] || lab[k] >= 0) continue;
-    const id = comps.length, q = [k]; lab[k] = id;
-    for (let h = 0; h < q.length; h++) {
-      const p = q[h], i = p % S, j = (p - i) / S;
-      for (const [di, dj] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
-        const a = i + di, b = j + dj;
-        if (a < 0 || b < 0 || a >= S || b >= S) continue;
-        const r = b * S + a;
-        if (m[r] && lab[r] < 0) { lab[r] = id; q.push(r); }
+  let tau, comps;
+  for (let pass = 0, r = ratio; pass < 3; pass++) {
+    tau = r >= 1 ? -Infinity : sorted[Math.min(S * S - 1, Math.floor((1 - r) * S * S))];
+    for (let k = 0; k < m.length; k++) m[k] = n[k] >= tau ? 1 : 0;
+    const lab = new Int32Array(S * S).fill(-1);
+    comps = [];
+    for (let k = 0; k < m.length; k++) {
+      if (!m[k] || lab[k] >= 0) continue;
+      const id = comps.length, q = [k]; lab[k] = id;
+      for (let h = 0; h < q.length; h++) {
+        const p = q[h], i = p % S, j = (p - i) / S;
+        for (const [di, dj] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+          const x = i + di, y = j + dj;
+          if (x < 0 || y < 0 || x >= S || y >= S) continue;
+          const t = y * S + x;
+          if (m[t] && lab[t] < 0) { lab[t] = id; q.push(t); }
+        }
       }
+      comps.push(q);
     }
-    comps.push(q);
+    let removed = 0;
+    comps = comps.filter(q => {
+      if (q.length * CELL_M * CELL_M >= MIN_MTN_M2) return true;
+      q.forEach(p => { m[p] = 0; }); removed += q.length; return false;
+    });
+    if (!removed || r >= 1) break;
+    r = Math.min(1, r + removed / (S * S));
   }
-  comps.forEach(q => { if (q.length < 25) q.forEach(p => { m[p] = 0; lab[p] = -1; }); });
 
   // 산지 경계로부터의 거리 (chamfer) → 산 안쪽일수록 높게
   const INF = 1e9, d = new Float32Array(S * S);
@@ -334,11 +347,13 @@ function heightField(seed, ratio) {
   const Hf = new Float32Array(S * S);
   for (let k = 0; k < Hf.length; k++) Hf[k] = MTN_MIN - 1 - Math.max(0, tau - n[k]) * 300;
   comps.forEach(q => {
-    if (!m[q[0]]) return;
-    const size = Math.min(1, Math.sqrt(q.length / 8000));
-    const peak = MTN_MIN + (MTN_MAX - MTN_MIN) * size * (0.75 + 0.25 * rnd());
     let nmax = tau, dmax = 0;
     q.forEach(p => { nmax = Math.max(nmax, n[p]); dmax = Math.max(dmax, d[p]); });
+    // 면적 0.8km²(타일 80칸) 이상이면 200m까지, 작을수록 낮게
+    const size = Math.min(1, Math.sqrt(q.length * CELL_M * CELL_M / 800000));
+    let peak = MTN_MIN + (MTN_MAX - MTN_MIN) * size * (0.75 + 0.25 * rnd());
+    // 산 반경(경계~정상 수평거리) 대비 경사가 과하지 않게 제한
+    peak = Math.min(peak, MTN_MIN + dmax * CELL_M * MAX_SLOPE);
     q.forEach(p => {
       const gn = nmax > tau ? (n[p] - tau) / (nmax - tau) : 1;
       const gd = dmax > 0 ? d[p] / dmax : 1;
@@ -353,7 +368,7 @@ function heightField(seed, ratio) {
 function buildTerrain(cfg) {
   if (!cfg || !(cfg.ratio > 0)) return null;
   const S = TG + 1, C = MAP / TG, Hf = heightField(cfg.seed, cfg.ratio);
-  const fill = new Path2D(), minor = new Path2D(), major = new Path2D();
+  const fill = new Path2D(), minor = new Path2D(), major = new Path2D(), labels = [];
   const corner = [[0, 0], [1, 0], [1, 1], [0, 1]];
   for (let j = 0; j < TG; j++) {
     let run = -1;
@@ -392,7 +407,14 @@ function buildTerrain(cfg) {
         const t = (L - v[k]) / (v[nx] - v[k]);
         e.push([(i + corner[k][0] + (corner[nx][0] - corner[k][0]) * t) * C, (j + corner[k][1] + (corner[nx][1] - corner[k][1]) * t) * C]);
       }
-      const seg = (a, b) => { path.moveTo(e[a][0], e[a][1]); path.lineTo(e[b][0], e[b][1]); };
+      const seg = (a, b) => {
+        path.moveTo(e[a][0], e[a][1]); path.lineTo(e[b][0], e[b][1]);
+        // 주곡선(50m 배수)에 고도 숫자 후보: 서로 300m(타일 3칸) 이상 떨어지게
+        if (L % 50 === 0 && L > MTN_MIN) {
+          const x = (e[a][0] + e[b][0]) / 2, y = (e[a][1] + e[b][1]) / 2;
+          if (labels.every(l => (l.x - x) ** 2 + (l.y - y) ** 2 > 300 * 300)) labels.push({ x, y, L });
+        }
+      };
       if (cnt === 2 && ins[0] === ins[2]) {              // 안장점: 중심값으로 연결 방향 결정
         const cIn = (v[0] + v[1] + v[2] + v[3]) / 4 >= L;
         const cut = [0, 1, 2, 3].filter(k => ins[k] !== cIn);
@@ -403,7 +425,7 @@ function buildTerrain(cfg) {
       }
     }
   }
-  return { fill, minor, major };
+  return { fill, minor, major, labels };
 }
 
 terrain = buildTerrain(terrainCfg);
@@ -437,6 +459,15 @@ function drawGrid() {
     ctx.strokeStyle = 'rgba(70,110,50,.75)'; ctx.lineWidth = 1.4 / s;
     ctx.stroke(terrain.major);
     ctx.restore();
+    if (TILE * s >= 60) {                 // 확대 시 주곡선 고도 표기
+      ctx.font = '600 10px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.lineWidth = 3; ctx.strokeStyle = '#d9edcc'; ctx.fillStyle = 'rgba(60,95,42,.9)';
+      for (const l of terrain.labels) {
+        const x = ox + l.x * s, y = oy + l.y * s;
+        if (x < -20 || y < -20 || x > W + 20 || y > H + 20) continue;
+        ctx.strokeText(l.L, x, y); ctx.fillText(l.L, x, y);
+      }
+    }
   }
   const tp = TILE * s;
   ctx.lineWidth = 1;
