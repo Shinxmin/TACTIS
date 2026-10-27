@@ -74,6 +74,13 @@
   #sidebar .chk { display: flex; align-items: flex-start; gap: 6px; font-weight: 600; line-height: 1.3; margin-bottom: 10px; cursor: pointer; }
   #sidebar .chk input { width: 16px; height: 16px; margin: 0; flex: none; accent-color: #6aa84f; }
   #sidebar section + section { margin-top: 22px; padding-top: 16px; border-top: 1px solid var(--line); }
+  #zoneHud { position: fixed; z-index: 8; display: none; gap: 6px; pointer-events: none; }
+  #zoneHud.on { display: flex; }
+  #zoneHud .zb { pointer-events: auto; width: 30px; height: 30px; border-radius: 50%; padding: 0; display: inline-flex; align-items: center; justify-content: center;
+    background: #fff; color: var(--ink); border: 1px solid rgba(0,0,0,.28); box-shadow: 0 2px 6px rgba(0,0,0,.18); cursor: pointer; }
+  #zoneHud .zb svg { width: 14px; height: 14px; display: block; }
+  #zoneHud .zb:disabled { opacity: .35; cursor: default; }
+  .btn.round.active { background: var(--ink); border-color: var(--ink); color: #fff; }
   #sidebar .duo { display: flex; gap: 6px; }
   #sidebar .duo .btn { flex: 1 1 0; min-width: 0; padding: 8px 0; white-space: nowrap; }
   #sidebar .seg { display: flex; flex-wrap: wrap; gap: 6px; }
@@ -88,11 +95,6 @@
   #confirm .btns { display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px; }
   #confirm .btn { font-size: 12px; padding: 7px 16px; }
 
-  #banner { position: fixed; left: 0; right: 0; margin: 0 auto; width: max-content; top: 56px; background: #ffb300; color: #000;
-    padding: 8px 14px; border-radius: 20px; font-size: 14px; display: none; max-width: calc(100% - 24px); line-height: 1.35; gap: 10px; align-items: center; z-index: 5; }
-  #banner.on { display: flex; }
-  #bannerText { min-width: 0; }
-  #banner .btn { flex: none; white-space: nowrap; }
 
   #sheet { --ink: #14181d; --muted: #6b7480; --line: rgba(0,0,0,.1); --symh: 22px;
     position: fixed; left: 0; right: 0; bottom: 0; max-height: 50vh; max-height: 50dvh; display: flex; flex-direction: column;
@@ -192,8 +194,8 @@
   </section>
   <section>
     <h2>레이어</h2>
-    <label class="chk"><input type="checkbox" id="layerBorder">경계선</label>
-    <div class="duo"><button class="btn primary" id="borderAdd">추가하기</button><button class="btn" id="borderDel">삭제하기</button></div>
+    <label class="chk"><input type="checkbox" id="layerZone">구역</label>
+    <div class="duo"><button class="btn primary" id="zoneAdd">추가하기</button><button class="btn" id="zoneDel">삭제하기</button></div>
   </section>
 </aside>
 <div id="confirmWrap"><div id="confirm" role="dialog" aria-modal="true">
@@ -201,7 +203,11 @@
   <p id="cfText">필드 크기를 수정하면 모든 데이터가 초기화됩니다</p>
   <div class="btns"><button class="btn" id="cfCancel">취소</button><button class="btn" id="cfOk">확인</button></div>
 </div></div>
-<div id="banner"><span id="bannerText"></span><button class="btn sm" id="bannerCancel">취소</button></div>
+<div id="zoneHud" aria-hidden="true">
+  <button class="zb" id="zCancel" aria-label="취소"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4 4l8 8M12 4l-8 8"/></svg></button>
+  <button class="zb" id="zUndo" aria-label="이전으로"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M13 8H3M7 4L3 8l4 4"/></svg></button>
+  <button class="zb" id="zRedo" aria-label="다시 앞으로"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8h10M9 4l4 4-4 4"/></svg></button>
+</div>
 
 <div id="sheet" aria-hidden="true">
   <div class="grab"></div>
@@ -502,34 +508,36 @@ function buildTerrain(cfg) {
 
 terrain = buildTerrain(terrainCfg);
 
-// ---------- 레이어: 경계선 ----------
-// 경계선은 닫힌 다각형. 시작 지점에서 출발해 지점을 차례로 찍고, 시작 지점을 다시 눌러 이어지면 추가된다.
+// ---------- 레이어: 구역 ----------
+// 구역은 닫힌 다각형. 시작 지점에서 출발해 지점을 차례로 찍고, 시작 지점을 다시 눌러 이어지면 추가된다.
 const LKEY = 'tactis.layers';
-let layers = { show: false, borders: [] };
-try { const l = JSON.parse(localStorage.getItem(LKEY)); if (l && Array.isArray(l.borders)) layers = { show: !!l.show, borders: l.borders }; } catch (e) {}
+let layers = { show: false, zones: [] };
+try { const l = JSON.parse(localStorage.getItem(LKEY)); const z = l && (l.zones || l.borders); if (Array.isArray(z)) layers = { show: !!l.show, zones: z }; } catch (e) {}
 const saveLayers = () => { try { localStorage.setItem(LKEY, JSON.stringify(layers)); } catch (e) {} };
-let draft = null;                                   // 작성 중인 경계선 지점 [[x,y], ...] (미터)
+let draft = null;                                   // 작성 중인 구역 지점 [[x,y], ...] (미터)
+let redoStack = [];                                 // undo로 되돌린 지점 (redo용)
+let lastPt = null;                                  // 마지막으로 누른 지점 (HUD 위치 기준)
 const SNAP_PX = 16;                                 // 시작 지점 근처 이 거리 안을 누르면 이어진 것으로 본다
 
-function drawBorders() {
+function drawZones() {
   const { s, ox, oy } = view;
   const P = ([x, y]) => [ox + x * s, oy + y * s];
   ctx.save();
   ctx.lineJoin = 'round'; ctx.lineCap = 'round';
   if (layers.show) {
-    layers.borders.forEach(b => {
+    layers.zones.forEach(b => {
       ctx.beginPath(); b.pts.forEach((p, i) => { const [x, y] = P(p); i ? ctx.lineTo(x, y) : ctx.moveTo(x, y); }); ctx.closePath();
-      ctx.fillStyle = 'rgba(210,60,50,.06)'; ctx.fill();
-      ctx.setLineDash([9, 5]); ctx.lineWidth = 2; ctx.strokeStyle = 'rgba(190,40,35,.9)'; ctx.stroke();
+      ctx.fillStyle = 'rgba(20,20,20,.07)'; ctx.fill();
+      ctx.setLineDash([9, 5]); ctx.lineWidth = 2; ctx.strokeStyle = 'rgba(25,25,25,.85)'; ctx.stroke();
     });
   }
   if (draft && draft.length) {
-    ctx.setLineDash([]); ctx.lineWidth = 2; ctx.strokeStyle = 'rgba(190,40,35,.9)';
+    ctx.setLineDash([]); ctx.lineWidth = 2; ctx.strokeStyle = 'rgba(25,25,25,.85)';
     ctx.beginPath(); draft.forEach((p, i) => { const [x, y] = P(p); i ? ctx.lineTo(x, y) : ctx.moveTo(x, y); }); ctx.stroke();
     draft.forEach((p, i) => {
       const [x, y] = P(p);
       ctx.beginPath(); ctx.arc(x, y, i === 0 ? 7 : 4, 0, 7);
-      ctx.fillStyle = i === 0 ? '#fff' : 'rgba(190,40,35,.95)'; ctx.fill();
+      ctx.fillStyle = i === 0 ? '#fff' : 'rgba(25,25,25,.95)'; ctx.fill();
       if (i === 0) { ctx.lineWidth = 2.5; ctx.stroke(); }
     });
   }
@@ -608,7 +616,8 @@ function drawGrid() {
     for (let r = r0; r < r1; r++) for (let c = c0; c < c1; c++)
       ctx.fillText(colName(c) + (r + 1), ox + c * tp + 3, oy + r * tp + 3);
   }
-  drawBorders();
+  drawZones();
+  placeZoneHud();
 }
 
 const els = new Map();   // id -> element
@@ -812,42 +821,37 @@ function distToSeg(p, a, b) {
   const t = l2 ? Math.max(0, Math.min(1, ((p[0] - a[0]) * dx + (p[1] - a[1]) * dy) / l2)) : 0;
   return Math.hypot(p[0] - a[0] - t * dx, p[1] - a[1] - t * dy);
 }
-const borderMsg = () => `경계선 ${draft.length + 1}번째 지점을 터치하세요${draft.length >= 3 ? ' (시작 지점을 터치하면 완료)' : ''}`;
-
 function tap(e, target) {
-  if (mode && mode.kind === 'border') {
+  if (mode && mode.kind === 'zone') {
     const r = vp.getBoundingClientRect();
     const sx = e.clientX - r.left, sy = e.clientY - r.top;
     const w = [(sx - view.ox) / view.s, (sy - view.oy) / view.s];
     if (w[0] < 0 || w[1] < 0 || w[0] > MAP || w[1] > MAP) return;
     if (draft.length) {
       const f = [view.ox + draft[0][0] * view.s, view.oy + draft[0][1] * view.s];
-      if ((f[0] - sx) ** 2 + (f[1] - sy) ** 2 <= SNAP_PX * SNAP_PX) {        // 시작 지점과 이어짐
-        if (draft.length < 3) { flash('경계선은 3개 이상의 지점이 필요합니다'); return; }
-        layers.borders.push({ id: nid(), pts: draft }); layers.show = true; $('layerBorder').checked = true;
-        draft = null; saveLayers(); setMode(null); render();
+      if (draft.length >= 3 && (f[0] - sx) ** 2 + (f[1] - sy) ** 2 <= SNAP_PX * SNAP_PX) {   // 시작 지점과 이어짐 → 완료
+        layers.zones.push({ id: nid(), pts: draft }); layers.show = true; $('layerZone').checked = true;
+        draft = null; saveLayers(); setMode(null);
         return;
       }
     }
-    draft.push(w);                                  // 이어지지 않으면 n번째 지점으로 계속 추가
-    $('bannerText').textContent = borderMsg();
+    draft.push(w); lastPt = w; redoStack = [];       // 이어지지 않으면 n번째 지점으로 계속 추가
     render();
     return;
   }
-  if (mode && mode.kind === 'borderdel') {
+  if (mode && mode.kind === 'zonedel') {
     const r = vp.getBoundingClientRect();
     const w = [(e.clientX - r.left - view.ox) / view.s, (e.clientY - r.top - view.oy) / view.s];
     const tol = 14 / view.s;
-    const hit = layers.borders.findLast(b => pointInPoly(w, b.pts) || b.pts.some((p, i) => distToSeg(w, p, b.pts[(i + 1) % b.pts.length]) <= tol));
-    if (!hit) { flash('삭제할 경계선을 터치하세요'); return; }
-    layers.borders = layers.borders.filter(b => b !== hit);
-    saveLayers(); setMode(null); render();
+    const hit = layers.zones.findLast(b => pointInPoly(w, b.pts) || b.pts.some((p, i) => distToSeg(w, p, b.pts[(i + 1) % b.pts.length]) <= tol));
+    if (hit) { layers.zones = layers.zones.filter(b => b !== hit); saveLayers(); }
+    setMode(null);                                   // 구역이 아닌 곳을 눌러도 삭제 모드 종료
     return;
   }
   if (mode) {
     const t = tileAt(e.clientX, e.clientY);
     if (!t) return;
-    if (unitAtTile(t.x, t.y, mode.id)) { flash('이미 부대가 있는 타일입니다'); return; }
+    if (unitAtTile(t.x, t.y, mode.id)) return;      // 이미 부대가 있는 타일은 무시
     const u = { id: nid(), name: '새 부대', x: t.x, y: t.y, type: 'inf', ech: 'II', subs: [] };
     units.push(u);
     setMode(null); save(); syncUnits(); openSheet(u.id, true);
@@ -859,39 +863,58 @@ function tap(e, target) {
 }
 
 // ---------- 모드 배너 ----------
-let flashTimer;
 function setMode(m) {
-  if (!m && mode && mode.kind === 'border') { draft = null; render(); }      // 작성 중이던 경계선은 취소
+  if (mode && mode.kind === 'zone' && (!m || m.kind !== 'zone')) { draft = null; redoStack = []; lastPt = null; }   // 작성 중이던 구역은 취소
   mode = m;
-  $('banner').classList.toggle('on', !!m);
-  if (m) $('bannerText').textContent = m.kind === 'border' ? borderMsg() : m.kind === 'borderdel' ? '삭제할 경계선을 터치하세요' : '부대를 둘 타일을 터치하세요';
+  $('add').classList.toggle('active', !!m && m.kind === 'add');
+  render();
 }
-function flash(msg) {
-  $('banner').classList.add('on');
-  $('bannerText').textContent = msg;
-  clearTimeout(flashTimer);
-  flashTimer = setTimeout(() => { if (mode) $('bannerText').textContent = mode.kind === 'border' ? borderMsg() : mode.kind === 'borderdel' ? '삭제할 경계선을 터치하세요' : '부대를 둘 타일을 터치하세요'; else $('banner').classList.remove('on'); }, 1400);
+
+// 구역 작성 중 마지막 지점 옆에 뜨는 HUD: 취소(X) · 이전(←) · 다시(→)
+function placeZoneHud() {
+  const hud = $('zoneHud'), on = !!(mode && mode.kind === 'zone' && lastPt);
+  hud.classList.toggle('on', on);
+  if (!on) return;
+  $('zUndo').disabled = !(draft && draft.length);
+  $('zRedo').disabled = !redoStack.length;
+  const r = vp.getBoundingClientRect();
+  let x = r.left + view.ox + lastPt[0] * view.s + 14, y = r.top + view.oy + lastPt[1] * view.s - 15;
+  const w = hud.offsetWidth || 102;
+  if (x + w > r.right - 6) x = r.left + view.ox + lastPt[0] * view.s - 14 - w;            // 오른쪽 공간이 모자라면 왼쪽으로
+  y = Math.max(r.top + 56, Math.min(r.bottom - 40, y));
+  hud.style.left = Math.max(6, x) + 'px'; hud.style.top = y + 'px';
 }
-$('bannerCancel').onclick = () => setMode(null);
-$('add').onclick = () => { closeSheet(); setMode({ kind: 'add' }); };
+$('zCancel').onclick = () => setMode(null);
+$('zUndo').onclick = () => {
+  if (!draft || !draft.length) return;
+  redoStack.push(draft.pop());
+  if (draft.length) lastPt = draft[draft.length - 1];     // HUD는 남은 마지막 지점 옆으로
+  render();
+};
+$('zRedo').onclick = () => {
+  if (!redoStack.length) return;
+  const p = redoStack.pop(); draft.push(p); lastPt = p;
+  render();
+};
+$('add').onclick = () => { closeSheet(); setMode(mode && mode.kind === 'add' ? null : { kind: 'add' }); };   // 다시 누르면 취소
 
 // 레이어 컨트롤
-$('layerBorder').checked = layers.show;
-$('layerBorder').addEventListener('change', () => { layers.show = $('layerBorder').checked; saveLayers(); render(); });
-$('borderAdd').onclick = () => {
-  layers.show = true; $('layerBorder').checked = true; saveLayers();
-  draft = []; setSidebar(false); closeSheet(); setMode({ kind: 'border' }); render();
+$('layerZone').checked = layers.show;
+$('layerZone').addEventListener('change', () => { layers.show = $('layerZone').checked; saveLayers(); render(); });
+$('zoneAdd').onclick = () => {
+  layers.show = true; $('layerZone').checked = true; saveLayers();
+  draft = []; redoStack = []; lastPt = null; setSidebar(false); closeSheet(); setMode({ kind: 'zone' });
 };
-$('borderDel').onclick = () => {
-  if (!layers.borders.length) { setSidebar(false); setMode({ kind: 'borderdel' }); flash('삭제할 경계선이 없습니다'); setTimeout(() => setMode(null), 1500); return; }
-  layers.show = true; $('layerBorder').checked = true; saveLayers();
-  setSidebar(false); closeSheet(); setMode({ kind: 'borderdel' }); render();
+$('zoneDel').onclick = () => {
+  if (!layers.zones.length) { setSidebar(false); return; }
+  layers.show = true; $('layerZone').checked = true; saveLayers();
+  setSidebar(false); closeSheet(); setMode({ kind: 'zonedel' });
 };
 $('fit').onclick = fit;
 
 // ---------- 사이드바 (지형 생성) ----------
 function setSidebar(open) {
-  if (open) closeSheet();
+  if (open) { closeSheet(); if (mode) setMode(null); }
   $('sidebar').classList.toggle('open', open);
   $('sidebar').setAttribute('aria-hidden', String(!open));
   $('scrim').classList.toggle('on', open);
@@ -925,11 +948,11 @@ $('mapSizes').addEventListener('click', e => {
   askConfirm('필드 크기를 수정하면 모든 데이터가 초기화됩니다', () => applyMapSize(n));
 });
 function applyMapSize(n) {
-  // 맵 크기 변경 → 부대/지형/경계선 데이터 모두 초기화
+  // 맵 크기 변경 → 부대/지형/구역 데이터 모두 초기화
   N = n; MAP = TILE * N;
   setTerrainGrid();
   units = []; terrainCfg = null; terrain = null; selectedId = null;
-  layers.borders = []; layers.show = false; saveLayers(); $('layerBorder').checked = false; setMode(null);
+  layers.zones = []; layers.show = false; saveLayers(); $('layerZone').checked = false; setMode(null);
   try { localStorage.setItem(MKEY, JSON.stringify(N)); localStorage.removeItem(TKEY); } catch (e) {}
   $('highMtn').checked = false;
   save(); closeSheet(); syncUnits();
