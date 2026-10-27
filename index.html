@@ -287,7 +287,8 @@ setTerrainGrid();
 const MTN_MIN = 50, MTN_MAX = 200, CI = 10;
 const MIN_MTN_M2 = TILE * TILE;   // 산지 최소 면적: 타일 1칸(100m x 100m)
 const MAX_SLOPE = 0.5;            // 최대 평균 경사 (높이/수평거리 ≈ 27°)
-const MAX_SLOPE_HIGH = 0.9;       // 더 높은 산지의 큰 산: 약 42° (평균 고도 150m 확보에 필요)
+const SLOPE_HIGH = 0.5;           // 더 높은 산지: 산자락~정상 평균 경사 한도 (≈22°, 완만하게)
+const FOOT_HIGH = 0.6;            // 더 높은 산지: 산자락 최대 경사 (≈27°)
 let terrainCfg = null, terrain = null;
 try { terrainCfg = JSON.parse(localStorage.getItem(TKEY)); } catch (e) {}
 
@@ -309,29 +310,11 @@ function heightField(seed, ratio, high) {
     return a + (b - a) * u + (c - a) * v + (a - b - c + d) * u * v;
   };
   // 지형 굴곡 크기를 미터로 지정 (600m 산줄기 ~ 75m 잔굴곡)
-  const OCT = [[600, 1], [300, .5], [150, .25], [75, .125]].map(([m, a]) => [m / CELL_M, a]);
+  const OCT = [[600, 1], [300, .5], [150, .25], [75, .125]].map(([m, a]) => [m * (high ? 1.4 : 1) / CELL_M, a]);   // 더 높은 산지는 산 하나가 조금 더 넓게
   for (let j = 0; j < S; j++) for (let i = 0; i < S; i++) {
     let v = 0;
     OCT.forEach(([f, a], o) => { v += a * vnoise(i / f, j / f, o); });
     n[j * S + i] = v / 1.875;
-  }
-
-  // '더 높은 산지': 1~2곳에 큰 융기를 더해 그 산의 범위를 키운다.
-  // 임계값은 아래에서 설정 비중 기준 분위수로 정하므로 전체 산지 비율은 그대로이고, 다른 산지가 그만큼 줄어든다.
-  let bigCount = 0;
-  if (high) {
-    const br = mulberry32(seed ^ 0x7f4a7c15);
-    bigCount = ratio < 0.2 || br() < 0.5 ? 1 : 2;   // 산지 비중이 작으면 한 곳에 몰아 평균 고도 확보
-    const sigma = S * (0.13 + 0.26 * Math.sqrt(ratio)), cs = [];
-    while (cs.length < bigCount) {
-      const c = [S * (0.2 + 0.6 * br()), S * (0.2 + 0.6 * br())];
-      if (cs.every(o => Math.hypot(o[0] - c[0], o[1] - c[1]) > S * 0.35)) cs.push(c);
-    }
-    for (let j = 0; j < S; j++) for (let i = 0; i < S; i++) {
-      let b = 0;
-      cs.forEach(([cx, cy]) => { b += Math.exp(-((i - cx) ** 2 + (j - cy) ** 2) / (2 * sigma * sigma)); });
-      n[j * S + i] += 0.7 * Math.min(1, b);
-    }
   }
 
   // 설정 비중만큼 산지가 되도록 임계값을 분위수로 결정.
@@ -339,7 +322,8 @@ function heightField(seed, ratio, high) {
   const sorted = Float32Array.from(n).sort();
   const m = new Uint8Array(S * S);
   let tau, comps;
-  for (let pass = 0, r = ratio; pass < 3; pass++) {
+  // 더 높은 산지: 산지가 높아진 만큼 전체 면적은 설정 비중의 93%로 약간만 줄인다
+  for (let pass = 0, r = high ? ratio * 0.93 : ratio; pass < 3; pass++) {
     tau = r >= 1 ? -Infinity : sorted[Math.min(S * S - 1, Math.floor((1 - r) * S * S))];
     for (let k = 0; k < m.length; k++) m[k] = n[k] >= tau ? 1 : 0;
     const lab = new Int32Array(S * S).fill(-1);
@@ -400,41 +384,44 @@ function heightField(seed, ratio, high) {
   const rnd = mulberry32(seed ^ 0x5bd1e995);
   const Hf = new Float32Array(S * S);
   for (let k = 0; k < Hf.length; k++) Hf[k] = MTN_MIN - 1 - Math.max(0, tau - n[k]) * 300;
-  const bigs = new Set(high ? comps.slice().sort((a, b) => b.length - a.length).slice(0, bigCount) : []);
   comps.forEach(q => {
     let nmax = tau, dmax = 0;
     q.forEach(p => { nmax = Math.max(nmax, n[p]); dmax = Math.max(dmax, d[p]); });
-    // 면적 0.8km²(타일 80칸) 이상이면 200m까지, 작을수록 낮게
-    const size = Math.min(1, Math.sqrt(q.length * CELL_M * CELL_M / 800000));
-    let peak = MTN_MIN + (MTN_MAX - MTN_MIN) * size * (0.75 + 0.25 * rnd());
-    // 산 반경(경계~정상 수평거리) 대비 경사가 과하지 않게 제한
-    const big = bigs.has(q);
-    if (big) peak = rnd() < 0.5 ? MTN_MAX : 175 + 25 * rnd();        // 큰 산은 종종 200m
-    peak = Math.min(peak, MTN_MIN + dmax * CELL_M * (big ? 1.2 : MAX_SLOPE));
+    const area = q.length * CELL_M * CELL_M;
     const gn = q.map(p => (nmax > tau ? (n[p] - tau) / (nmax - tau) : 1));
-    const gs = q.map((p, idx) => Math.min(1, Math.max(0, 0.6 * gn[idx] + 0.4 * (dmax > 0 ? d[p] / dmax : 1))));
-    if (!big) { q.forEach((p, idx) => { Hf[p] = Math.min(MTN_MAX, MTN_MIN + 0.01 + (peak - MTN_MIN) * gs[idx]); }); return; }
-    // 큰 산: 산자락 경사는 MAX_SLOPE_HIGH 이내로 오르고(산 가장자리부터 일정 경사), 능선은 높게 유지하되
-    // 지수(gamma)를 낮춰 평균 고도가 150m 이상이 되도록 보정. 능선에는 기복(±11m)을 더해 경사를 살린다.
-    const hAt = (idx, gm, sl) => {
-      const p = q[idx];
-      const cap = MTN_MIN + sl * d[p] * CELL_M;
-      const top = MTN_MIN + (peak - MTN_MIN) * gs[idx] ** gm + 22 * (gn[idx] - 0.5);
-      return Math.min(MTN_MAX, cap, Math.max(MTN_MIN + 0.01, top));
-    };
-    // 평균 150m는 필수: 기본 경사(0.9)로 모자라면(산이 작을 때) 경사 한도를 필요한 만큼만 단계적으로 올린다
-    let gamma = 0.7, slope = MAX_SLOPE_HIGH, ok = false;
-    for (const sl of [MAX_SLOPE_HIGH, 1.05, 1.2]) {
-      slope = sl;
-      for (const gm of [0.7, 0.55, 0.45, 0.36, 0.3, 0.24, 0.19, 0.15, 0.1]) {
-        gamma = gm;
-        let sum = 0; for (let idx = 0; idx < q.length; idx++) sum += hAt(idx, gm, sl);
-        if (sum / q.length >= 152) { ok = true; break; }
-      }
-      if (ok) break;
+    if (!high) {
+      // 면적 0.8km²(타일 80칸) 이상이면 200m까지, 작을수록 낮게. 산 반경 대비 경사가 과하지 않게 제한
+      const size = Math.min(1, Math.sqrt(area / 800000));
+      let peak = MTN_MIN + (MTN_MAX - MTN_MIN) * size * (0.75 + 0.25 * rnd());
+      peak = Math.min(peak, MTN_MIN + dmax * CELL_M * MAX_SLOPE);
+      q.forEach((p, idx) => {
+        const g = Math.min(1, Math.max(0, 0.6 * gn[idx] + 0.4 * (dmax > 0 ? d[p] / dmax : 1)));
+        Hf[p] = Math.min(MTN_MAX, MTN_MIN + 0.01 + (peak - MTN_MIN) * g);
+      });
+      return;
     }
-    q.forEach((p, idx) => { Hf[p] = hAt(idx, gamma, slope); });
+    // 더 높은 산지: 모든 산이 기존보다 높게(면적 0.45km²부터 최고 고도급), 대신 경사는 완만하게.
+    // 높이는 산 반경으로 제한(평균 경사 SLOPE_HIGH)해서 작은 산은 여전히 낮고, 산자락도 FOOT_HIGH 이내로만 오른다.
+    const sizeH = Math.min(1, Math.sqrt(area / 450000));
+    let peak = MTN_MIN + (MTN_MAX - MTN_MIN) * (0.6 + 0.4 * sizeH) * (0.88 + 0.12 * rnd());
+    peak = Math.min(peak, MTN_MIN + dmax * CELL_M * SLOPE_HIGH);
+    q.forEach((p, idx) => {
+      const g = Math.min(1, Math.max(0, 0.4 * gn[idx] + 0.6 * (dmax > 0 ? d[p] / dmax : 1)));
+      const top = MTN_MIN + (peak - MTN_MIN) * (1 - (1 - g) ** 1.6);          // 가장자리에서 완만히 시작해 넓게 오르는 형태
+      Hf[p] = Math.min(MTN_MAX, MTN_MIN + FOOT_HIGH * d[p] * CELL_M, Math.max(MTN_MIN + 0.01, top));
+    });
   });
+  if (high) {                                  // 산지 안에서만 2회 평활화: 등고선 꺾임과 국소 급경사 완화
+    for (let pass = 0; pass < 2; pass++) {
+      const c = Float32Array.from(Hf);
+      for (let j = 1; j < S - 1; j++) for (let i = 1; i < S - 1; i++) {
+        const k = j * S + i; if (c[k] < MTN_MIN + 0.005) continue;
+        let sum = 0, cnt = 0;
+        for (let b = -1; b <= 1; b++) for (let a = -1; a <= 1; a++) { const v = c[k + b * S + a]; if (v >= MTN_MIN) { sum += v; cnt++; } }
+        Hf[k] = Math.max(MTN_MIN + 0.01, sum / cnt);
+      }
+    }
+  }
   return Hf;
 }
 
