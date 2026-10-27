@@ -59,7 +59,7 @@
 
   #scrim { position: fixed; inset: 0; z-index: 29; display: none; }
   #scrim.on { display: block; }
-  #sidebar { position: fixed; left: 0; top: 0; bottom: 0; width: 30vw; z-index: 30; background: rgba(255,255,255,.96);
+  #sidebar { position: fixed; left: 0; top: 0; bottom: 0; width: 40vw; z-index: 30; background: rgba(255,255,255,.96);
     border-right: 1px solid rgba(0,0,0,.12); box-shadow: 4px 0 18px rgba(0,0,0,.1); font-size: 12px;
     padding: 14px 12px; padding-top: max(14px, env(safe-area-inset-top)); overflow-y: auto;
     transform: translateX(-102%); transition: transform .22s ease; }
@@ -69,6 +69,18 @@
   #sidebar .ratio { display: flex; justify-content: space-between; gap: 4px; font-weight: 600; font-variant-numeric: tabular-nums; }
   #sidebar input[type=range] { width: 100%; margin: 8px 0 12px; accent-color: #6aa84f; -webkit-user-select: auto; user-select: auto; }
   #sidebar .btn { width: 100%; font-size: 12px; padding: 8px 0; }
+  #sidebar section + section { margin-top: 22px; padding-top: 16px; border-top: 1px solid var(--line); }
+  #sidebar .seg { display: flex; flex-wrap: wrap; gap: 6px; }
+  #sidebar .seg .btn { flex: 1 1 0; min-width: 0; width: auto; padding: 8px 2px; white-space: nowrap; }
+  #sidebar .seg .btn.on { background: var(--ink); border-color: var(--ink); color: #fff; }
+
+  #confirmWrap { position: fixed; inset: 0; z-index: 40; background: rgba(0,0,0,.35); display: none; align-items: center; justify-content: center; padding: 16px; }
+  #confirmWrap.on { display: flex; }
+  #confirm { background: #fff; border-radius: 14px; padding: 18px 18px 14px; width: 100%; max-width: 320px; box-shadow: 0 8px 30px rgba(0,0,0,.2); }
+  #confirm h3 { margin: 0 0 8px; font-size: 15px; }
+  #confirm p { margin: 0; font-size: 12px; color: var(--muted); line-height: 1.5; }
+  #confirm .btns { display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px; }
+  #confirm .btn { font-size: 12px; padding: 7px 16px; }
 
   #banner { position: fixed; left: 50%; top: 56px; transform: translateX(-50%); background: #ffb300; color: #000;
     padding: 8px 14px; border-radius: 20px; font-size: 14px; white-space: nowrap; display: none; gap: 10px; align-items: center; z-index: 5; }
@@ -153,12 +165,25 @@
 </div>
 <div id="scrim"></div>
 <aside id="sidebar" aria-hidden="true">
-  <h2>지형 생성</h2>
-  <div class="lbl">평지 : 산지</div>
-  <div class="ratio"><span id="rPlain">70</span><span>:</span><span id="rMtn">30</span></div>
-  <input type="range" id="mtnRatio" min="0" max="100" step="5" value="30" aria-label="산지 비중">
-  <button class="btn primary" id="applyTerrain">적용</button>
+  <section>
+    <h2>맵 크기</h2>
+    <div class="seg" id="mapSizes">
+      <button class="btn" data-n="20">20×20</button><button class="btn" data-n="40">40×40</button><button class="btn" data-n="60">60×60</button>
+    </div>
+  </section>
+  <section>
+    <h2>지형 생성</h2>
+    <div class="lbl">평지 : 산지</div>
+    <div class="ratio"><span id="rPlain">70</span><span>:</span><span id="rMtn">30</span></div>
+    <input type="range" id="mtnRatio" min="0" max="95" step="5" value="30" aria-label="산지 비중">
+    <button class="btn primary" id="applyTerrain">적용</button>
+  </section>
 </aside>
+<div id="confirmWrap"><div id="confirm" role="dialog" aria-modal="true">
+  <h3>초기화</h3>
+  <p>필드 크기를 수정하면 모든 데이터가 초기화됩니다</p>
+  <div class="btns"><button class="btn" id="cfCancel">취소</button><button class="btn" id="cfOk">확인</button></div>
+</div></div>
 <div id="banner"><span id="bannerText"></span><button class="btn sm" id="bannerCancel">취소</button></div>
 
 <div id="sheet" aria-hidden="true">
@@ -174,8 +199,11 @@
 'use strict';
 
 const TILE = 100;          // 타일 한 칸 = 100m
-const N = 20;              // 20x20 타일 = 4km²
-const MAP = TILE * N;
+const MKEY = 'tactis.map';
+const MAP_SIZES = [20, 40, 60];
+let N = 20;                // 한 변 타일 수 (기본 20x20 = 4km²)
+try { const n = JSON.parse(localStorage.getItem(MKEY)); if (MAP_SIZES.includes(n)) N = n; } catch (e) {}
+let MAP = TILE * N;
 const BLD = 0.7;           // 건물은 타일의 70%
 const COMPACT_TILE_PX = 20; // 타일이 이 크기보다 작으면 간소화(단대호만)
 const KEY = 'tactis.v1';
@@ -205,7 +233,7 @@ function sample() {
 
 let units;
 try { units = JSON.parse(localStorage.getItem(KEY)); } catch (e) {}
-if (!Array.isArray(units) || !units.length) units = sample();
+if (!Array.isArray(units)) units = N === 20 ? sample() : [];
 units.forEach(u => { u.subs = u.subs || []; delete u.support; });
 const save = () => { try { localStorage.setItem(KEY, JSON.stringify(units)); } catch (e) {} };
 
@@ -247,9 +275,10 @@ function symbolSVG(type, ech) {
 // ---------- 지형 ----------
 // 평지/산지 구분. 산지 고도 50~200m, 등고선 10m 간격 (50m 배수는 굵게).
 const TKEY = 'tactis.terrain';
-const TG = 200;                 // 고도 격자 200x200 (10m 간격)
+let TG, CELL_M;                  // 고도 격자 칸 수 / 한 칸 크기(m)
+const setTerrainGrid = () => { TG = Math.min(N * 10, 400); CELL_M = MAP / TG; };  // 기본 10m, 큰 맵은 최대 400칸
+setTerrainGrid();
 const MTN_MIN = 50, MTN_MAX = 200, CI = 10;
-const CELL_M = MAP / TG;          // 격자 한 칸 = 10m
 const MIN_MTN_M2 = TILE * TILE;   // 산지 최소 면적: 타일 1칸(100m x 100m)
 const MAX_SLOPE = 0.5;            // 최대 평균 경사 (높이/수평거리 ≈ 27°)
 let terrainCfg = null, terrain = null;
@@ -367,7 +396,7 @@ function heightField(seed, ratio) {
 // 고도 격자 → 산지 채움 경로 + 등고선 경로 (미터 좌표)
 function buildTerrain(cfg) {
   if (!cfg || !(cfg.ratio > 0)) return null;
-  const S = TG + 1, C = MAP / TG, Hf = heightField(cfg.seed, cfg.ratio);
+  const S = TG + 1, C = CELL_M, Hf = heightField(cfg.seed, Math.min(cfg.ratio, 0.95));
   const fill = new Path2D(), minor = new Path2D(), major = new Path2D(), labels = [];
   const corner = [[0, 0], [1, 0], [1, 1], [0, 1]];
   for (let j = 0; j < TG; j++) {
@@ -441,6 +470,9 @@ function sizeCanvas() {
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 }
 
+// 열 이름: A..Z, AA..AZ, BA..
+const colName = i => (i >= 26 ? String.fromCharCode(64 + Math.floor(i / 26)) : '') + String.fromCharCode(65 + i % 26);
+
 function drawGrid() {
   const { s, ox, oy } = view;
   ctx.fillStyle = '#ffffff';
@@ -486,7 +518,7 @@ function drawGrid() {
     ctx.font = '10px sans-serif';
     ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
     for (let i = 0; i < N; i++) {
-      ctx.fillText(String.fromCharCode(65 + i), ox + (i + .5) * tp, oy - 8);
+      ctx.fillText(colName(i), ox + (i + .5) * tp, oy - 8);
       ctx.fillText(String(i + 1), ox - 10, oy + (i + .5) * tp);
     }
   }
@@ -494,8 +526,10 @@ function drawGrid() {
     ctx.fillStyle = 'rgba(110,110,110,.5)';
     ctx.font = '10px sans-serif';
     ctx.textAlign = 'left'; ctx.textBaseline = 'top';
-    for (let r = 0; r < N; r++) for (let c = 0; c < N; c++)
-      ctx.fillText(String.fromCharCode(65 + c) + (r + 1), ox + c * tp + 3, oy + r * tp + 3);
+    const c0 = Math.max(0, Math.floor(-ox / tp)), c1 = Math.min(N, Math.ceil((W - ox) / tp));
+    const r0 = Math.max(0, Math.floor(-oy / tp)), r1 = Math.min(N, Math.ceil((H - oy) / tp));
+    for (let r = r0; r < r1; r++) for (let c = c0; c < c1; c++)
+      ctx.fillText(colName(c) + (r + 1), ox + c * tp + 3, oy + r * tp + 3);
   }
 }
 
@@ -731,12 +765,36 @@ const syncRatio = () => {
   const m = Number($('mtnRatio').value);
   $('rPlain').textContent = 100 - m; $('rMtn').textContent = m;
 };
-if (terrainCfg) $('mtnRatio').value = Math.round(terrainCfg.ratio * 100);
+if (terrainCfg) $('mtnRatio').value = Math.min(95, Math.round(terrainCfg.ratio * 100));
 syncRatio();
 $('mtnRatio').addEventListener('input', syncRatio);
+// ---------- 맵 크기 ----------
+let pendingN = null;
+const syncSizes = () => $('mapSizes').querySelectorAll('[data-n]').forEach(b => b.classList.toggle('on', Number(b.dataset.n) === N));
+syncSizes();
+$('mapSizes').addEventListener('click', e => {
+  const b = e.target.closest('[data-n]');
+  if (!b || Number(b.dataset.n) === N) return;
+  pendingN = Number(b.dataset.n);
+  $('confirmWrap').classList.add('on');
+});
+$('cfCancel').onclick = () => { pendingN = null; $('confirmWrap').classList.remove('on'); };
+$('cfOk').onclick = () => {
+  // 맵 크기 변경 → 부대/지형 데이터 모두 초기화
+  N = pendingN; MAP = TILE * N; pendingN = null;
+  setTerrainGrid();
+  units = []; terrainCfg = null; terrain = null; selectedId = null;
+  try { localStorage.setItem(MKEY, JSON.stringify(N)); localStorage.removeItem(TKEY); } catch (e) {}
+  save(); closeSheet(); syncUnits();
+  $('mtnRatio').value = 30; syncRatio(); syncSizes();
+  $('confirmWrap').classList.remove('on');
+  setSidebar(false);
+  fit();
+};
+
 $('applyTerrain').onclick = () => {
   // 건물 데이터는 그대로 두고 지형만 새로 생성
-  terrainCfg = { seed: (Math.random() * 2 ** 31) | 0, ratio: Number($('mtnRatio').value) / 100 };
+  terrainCfg = { seed: (Math.random() * 2 ** 31) | 0, ratio: Math.min(95, Number($('mtnRatio').value)) / 100 };
   try { localStorage.setItem(TKEY, JSON.stringify(terrainCfg)); } catch (e) {}
   terrain = buildTerrain(terrainCfg);
   render();
