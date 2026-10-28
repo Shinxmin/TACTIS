@@ -80,7 +80,19 @@
   .rh::after { content: ''; position: absolute; left: 50%; top: 50%; width: 9px; height: 9px; margin: -4.5px 0 0 -4.5px; border-radius: 2.5px; background: #fff; border: 2px solid var(--hc, #2d6cdf); box-shadow: 0 1px 4px rgba(0,0,0,.3); }
   .rh[data-c=tr], .rh[data-c=bl] { cursor: nesw-resize; }
   #roadHandles.del { --hc: #e07a76; }
-  #zoneHud { position: fixed; z-index: 8; display: none; gap: 6px; pointer-events: none; }
+  #roadHandles.naming .rh { pointer-events: none; opacity: .45; }
+  #zoneHud { position: fixed; z-index: 8; display: none; gap: 6px; pointer-events: none; align-items: flex-start; }
+  .zpal { pointer-events: auto; width: 30px; height: 30px; border-radius: 15px; overflow: hidden; background: #fff; border: 1px solid rgba(0,0,0,.28);
+    box-shadow: 0 2px 6px rgba(0,0,0,.18); transition: height .26s cubic-bezier(.2,.85,.25,1); }
+  .zpal.open { height: 120px; }
+  .zpal .zpb { display: flex; align-items: center; justify-content: center; width: 28px; height: 28px; padding: 0; border: 0; background: none; color: var(--ink); cursor: pointer; }
+  .zpal .zpb svg { width: 15px; height: 15px; }
+  .zpal .pc { display: block; width: 20px; height: 20px; margin: 4px auto 5px; border-radius: 50%; border: 1px solid rgba(0,0,0,.25); cursor: pointer; opacity: 0; transform: scale(.6); transition: opacity .2s ease .08s, transform .2s ease .08s; }
+  .zpal.open .pc { opacity: 1; transform: none; }
+  #zoneHud .zb.on { background: var(--ink); color: #fff; border-color: var(--ink); }
+  #roadNameBox { position: fixed; z-index: 9; display: none; background: #fff; border-radius: 10px; padding: 5px; box-shadow: 0 4px 16px rgba(0,0,0,.25); border: 1px solid rgba(0,0,0,.12); }
+  #roadNameBox.on { display: block; }
+  #roadNameBox input { display: block; width: 168px; border: 0; outline: none; background: transparent; font: inherit; font-size: 16px; padding: 4px 6px; color: var(--ink); -webkit-user-select: text; user-select: text; }
   #zoneHud.on { display: flex; }
   #zoneHud .zb { pointer-events: auto; width: 30px; height: 30px; border-radius: 50%; padding: 0; display: inline-flex; align-items: center; justify-content: center;
     background: #fff; color: var(--ink); border: 1px solid rgba(0,0,0,.28); box-shadow: 0 2px 6px rgba(0,0,0,.18); cursor: pointer; }
@@ -240,7 +252,7 @@
   </section>
   <section>
     <h2>도로</h2>
-    <div class="duo"><button class="btn primary" id="roadAdd">추가하기</button><button class="btn" id="roadDel">삭제하기</button></div>
+    <button class="btn primary" id="roadAdd">추가하기</button>
     <button class="btn primary" id="roadCurve" style="margin-top:6px">곡선 추가하기</button>
   </section>
 </aside>
@@ -255,7 +267,13 @@
   <button class="zb" id="zDone" aria-label="완료"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8.5l3.2 3.2L13 4.8"/></svg></button>
   <button class="zb" id="zUndo" aria-label="이전으로"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M13 8H3M7 4L3 8l4 4"/></svg></button>
   <button class="zb" id="zRedo" aria-label="다시 앞으로"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8h10M9 4l4 4-4 4"/></svg></button>
+  <div class="zpal" id="zPalWrap">
+    <button class="zpb" id="zPal" aria-label="도로 색상"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2.2C4.6 2.2 2.2 4.6 2.2 7.6c0 3 2.4 5.6 5.4 5.6.9 0 1.3-.6 1-1.3-.3-.7.1-1.5.9-1.5h1.4c1.4 0 2.8-.9 2.8-2.6C13.7 4.4 11.3 2.2 8 2.2z"/><circle cx="5" cy="7.4" r=".8" fill="currentColor" stroke="none"/><circle cx="7.4" cy="5" r=".8" fill="currentColor" stroke="none"/><circle cx="10.2" cy="5.6" r=".8" fill="currentColor" stroke="none"/></svg></button>
+    <i class="pc" data-col="0" style="background:#cfd2d8"></i><i class="pc" data-col="1" style="background:#6b7078"></i><i class="pc" data-col="2" style="background:#f5a524"></i>
+  </div>
+  <button class="zb" id="zPen" aria-label="도로명"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M2.6 13.4l.7-3 7.6-7.7a1.4 1.4 0 012 2l-7.6 7.7z"/></svg></button>
 </div>
+<div id="roadNameBox"><input id="roadNameInput" maxlength="14" placeholder="도로명을 지정하세요" enterkeyhint="done" autocomplete="off"></div>
 
 <div id="sheet" aria-hidden="true">
   <div class="grab"></div>
@@ -574,12 +592,13 @@ function normalizeLayers(raw) {
     if (l.type === 'terrain') { if (!by.terrain) out.push(by.terrain = { id: 'terrain', type: 'terrain', name: l.name || '', show: l.show !== false }); return; }
     if (!['zone', 'line', 'road'].includes(l.type)) return;
     let t = by[l.type];
-    if (!t) { out.push(t = by[l.type] = { id: l.type, type: l.type, name: l.name || '', show: l.show !== false, ...(l.type === 'road' ? { cells: [], curves: [] } : { items: [] }) }); }
+    if (!t) { out.push(t = by[l.type] = { id: l.type, type: l.type, name: l.name || '', show: l.show !== false, ...(l.type === 'road' ? { cells: [], curves: [], names: [] } : { items: [] }) }); }
     else if (l.show !== false) t.show = true;
     if (l.type === 'road') {                                       // 이전 형식(범위)의 도로는 칸 목록으로 변환
       const cs = l.cells || (l.rect ? (() => { const r = l.rect, a = []; for (let y = r.y0; y <= r.y1; y++) for (let x = r.x0; x <= r.x1; x++) a.push([x, y]); return a; })() : []);
       cs.forEach(c => { if (!t.cells.some(q => q[0] === c[0] && q[1] === c[1])) t.cells.push(c); });
-      (l.curves || []).forEach(c => { if (Array.isArray(c) && c.length === 3) t.curves.push(c); });   // 곡선 도로: [시작, 조절점, 도착]
+      (l.curves || []).forEach(c => { if (Array.isArray(c) && c.length >= 3) t.curves.push(c); });
+      (l.names || []).forEach(n => t.names.push(n));   // 곡선 도로: [시작, 조절점, 도착]
     } else (l.items || (l.pts ? [l.pts] : [])).forEach(p => t.items.push(p));
   });
   return out.filter(l => l.type === 'terrain' || !layerEmpty(l));
@@ -606,7 +625,7 @@ syncTerrainLayer();
 // 유형별 통합 레이어를 가져온다 (없으면 맨 위에 새로 만든다)
 function layerOf(type) {
   let l = layers.list.find(x => x.type === type);
-  if (!l) { l = { id: type, type, name: '', show: true, ...(type === 'road' ? { cells: [], curves: [] } : { items: [] }) }; layers.list.unshift(l); }
+  if (!l) { l = { id: type, type, name: '', show: true, ...(type === 'road' ? { cells: [], curves: [], names: [] } : { items: [] }) }; layers.list.unshift(l); }
   return l;
 }
 function dropIfEmpty(l) { if (l && layerEmpty(l)) layers.list = layers.list.filter(x => x !== l); }
@@ -627,8 +646,12 @@ function curveSamples(c) {
   sampleCache.set(c, r); return r;
 }
 
+// 도로 색상: 0 기본(연한 회색), 1 이전 기본색(회색), 2 고속도로(노랑/주황)
+const ROAD_COLORS = ['#cfd2d8', '#6b7078', '#f5a524'], ROAD_EDGE = ['#a9aeb7', '#4c5159', '#d98a0d'];
 function roadPath(cells, curves) {
-  const T = TILE, h = T * 0.175, key = (x, y) => x + ',' + y, set = new Set(cells.map(c => key(c[0], c[1]))), p = new Path2D();
+  const T = TILE, h = T * 0.15, key = (x, y) => x + ',' + y, set = new Set(cells.map(c => key(c[0], c[1])));
+  const colOf = new Map(cells.map(c => [key(c[0], c[1]), c[2] || 0]));
+  const paths = ROAD_COLORS.map(() => new Path2D());       // 색마다 하나의 경로 (같은 색 안에서는 겹쳐도 균일)
   // 곡선 도로의 시작/도착 칸은 사각형 대신 원(반지름 = 도로 반폭)으로 처리: 직선 도로 끝의 사각 모서리가 곡선 옆으로 삐져나오지 않고 매끄럽게 이어진다
   const disk = new Set();
   (curves || []).forEach(c => [c[0], c[2]].forEach(q => disk.add(key(Math.floor(q[0] / T), Math.floor(q[1] / T)))));
@@ -644,7 +667,8 @@ function roadPath(cells, curves) {
   const skip = new Set();                                  // 곡선 안에 완전히 묻힌 외톨이 칸
   cells.forEach(([x, y]) => {
     const k = key(x, y), cx = (x + 0.5) * T, cy = (y + 0.5) * T;
-    if (disk.has(k)) { p.moveTo(cx + h, cy); p.arc(cx, cy, h, 0, Math.PI * 2); return; }
+    const pk = paths[colOf.get(k) || 0];
+    if (disk.has(k)) { pk.moveTo(cx + h, cy); pk.arc(cx, cy, h, 0, Math.PI * 2); return; }
     const nb = [[1, 0], [-1, 0], [0, 1], [0, -1]].filter(([dx, dy]) => set.has(key(x + dx, y + dy)));
     if (nb.length <= 1 && grid.size && nearCurve(cx, cy) <= h + 0.5) {
       // 직선 도로의 끝(또는 외톨이 칸)이 곡선 띠 안에 있으면, 칸 중앙에서 시작하느라 생기는 사각 끝이 곡선 반대쪽으로 튀어나온다.
@@ -659,18 +683,25 @@ function roadPath(cells, curves) {
       tip.set(k, [cx + o[0] * ext, cy + o[1] * ext]);
       return;
     }
-    p.rect(cx - h, cy - h, 2 * h, 2 * h);
+    pk.rect(cx - h, cy - h, 2 * h, 2 * h);
   });
   const at = (x, y) => tip.get(key(x, y)) || [(x + 0.5) * T, (y + 0.5) * T];
   cells.forEach(([x, y]) => {
     if (skip.has(key(x, y))) return;
     const a = at(x, y);
-    if (set.has(key(x + 1, y))) { const b = at(x + 1, y); p.rect(Math.min(a[0], b[0]), a[1] - h, Math.abs(b[0] - a[0]), 2 * h); }    // 오른쪽 이웃과 연결
-    if (set.has(key(x, y + 1))) { const b = at(x, y + 1); p.rect(a[0] - h, Math.min(a[1], b[1]), 2 * h, Math.abs(b[1] - a[1])); }    // 아래쪽 이웃과 연결
+    const ca = paths[colOf.get(key(x, y)) || 0], ov = 0.4;                  // 이웃과의 연결은 절반씩 각자의 색으로 (이음새가 안 보이게 살짝 겹침)
+    if (set.has(key(x + 1, y))) {                                          // 오른쪽 이웃과 연결
+      const b = at(x + 1, y), cb = paths[colOf.get(key(x + 1, y)) || 0], m = (a[0] + b[0]) / 2;
+      ca.rect(Math.min(a[0], m) - ov, a[1] - h, Math.abs(m - a[0]) + 2 * ov, 2 * h); cb.rect(Math.min(m, b[0]) - ov, b[1] - h, Math.abs(b[0] - m) + 2 * ov, 2 * h);
+    }
+    if (set.has(key(x, y + 1))) {                                          // 아래쪽 이웃과 연결
+      const b = at(x, y + 1), cb = paths[colOf.get(key(x, y + 1)) || 0], m = (a[1] + b[1]) / 2;
+      ca.rect(a[0] - h, Math.min(a[1], m) - ov, 2 * h, Math.abs(m - a[1]) + 2 * ov); cb.rect(b[0] - h, Math.min(m, b[1]) - ov, 2 * h, Math.abs(b[1] - m) + 2 * ov);
+    }
   });
-  return p;
+  return paths;
 }
-const ROAD_COLOR = '#6b7078', ROAD_W = TILE * 0.35;
+const ROAD_W = TILE * 0.3;
 // 곡선 도로: [시작, 조절점, 도착]의 2차 베지어 곡선 (캔버스가 곡선을 매끄럽게 그린다)
 function curvePath(c, p) {
   p = p || new Path2D();
@@ -682,9 +713,60 @@ function drawRoad(l) {
   const { s, ox, oy } = view;
   ctx.save();
   ctx.setTransform(dpr * s, 0, 0, dpr * s, dpr * ox, dpr * oy);
-  ctx.fillStyle = ctx.strokeStyle = ROAD_COLOR;
-  if (l.cells && l.cells.length) ctx.fill(roadPath(l.cells, l.curves));
-  if (l.curves && l.curves.length) { ctx.lineWidth = ROAD_W; ctx.lineCap = 'round'; ctx.lineJoin = 'round'; l.curves.forEach(c => ctx.stroke(curvePath(c))); }   // 같은 불투명 색이라 겹쳐도 균일
+  const edge = 3 / s, paths = roadPath(l.cells || [], l.curves);
+  // 윤곽을 먼저 굵게 그리고 그 위에 면을 채우면, 겹친 사각형 안쪽 선은 가려지고 바깥 윤곽만 남는다
+  ctx.lineJoin = 'miter'; ctx.lineCap = 'round';
+  paths.forEach((p, i) => { ctx.strokeStyle = ROAD_EDGE[i]; ctx.lineWidth = edge; ctx.stroke(p); });
+  (l.curves || []).forEach(c => { ctx.strokeStyle = ROAD_EDGE[c[3] || 0]; ctx.lineWidth = ROAD_W + edge; ctx.lineJoin = 'round'; ctx.stroke(curvePath(c)); });
+  paths.forEach((p, i) => { ctx.fillStyle = ROAD_COLORS[i]; ctx.fill(p); });
+  (l.curves || []).forEach(c => { ctx.strokeStyle = ROAD_COLORS[c[3] || 0]; ctx.lineWidth = ROAD_W; ctx.stroke(curvePath(c)); });   // 곡선도 색별로 불투명하게
+  ctx.restore();
+  drawRoadNames(l);
+}
+
+// ---------- 도로명 ----------
+// 도로명은 두 칸 이상 이어진 직선 도로 위에 가로(가로 도로) 또는 세로(세로 도로, 한 글자씩 쌓음)로 표기한다.
+// 지정한 칸에서 시작해 이어진 칸 수만큼 쓰고, 오른쪽/아래가 모자라면 왼쪽/위로 당겨서 지정한 칸에서 끝나게 한다. 글자는 도로 폭 안에 들어가게 크기를 조정한다.
+const roadSet = l => new Set((l.cells || []).map(c => c[0] + ',' + c[1]));
+function roadRun(set, x, y, o) {
+  const dx = o === 'h' ? 1 : 0, dy = o === 'h' ? 0 : 1;
+  let sx = x, sy = y; while (set.has((sx - dx) + ',' + (sy - dy))) { sx -= dx; sy -= dy; }
+  const run = []; let cx = sx, cy = sy; while (set.has(cx + ',' + cy)) { run.push([cx, cy]); cx += dx; cy += dy; }
+  return { run, i: run.findIndex(c => c[0] === x && c[1] === y) };
+}
+function nameOrientation(set, x, y) {                       // 1x1(어느 방향으로도 2칸 미만)이면 null
+  const h = roadRun(set, x, y, 'h'), v = roadRun(set, x, y, 'v');
+  if (h.run.length < 2 && v.run.length < 2) return null;
+  return h.run.length >= v.run.length ? 'h' : 'v';
+}
+function nameLayout(set, nm, measure) {
+  if (!set.has(nm.x + ',' + nm.y)) return null;
+  const { run, i } = roadRun(set, nm.x, nm.y, nm.o);
+  if (run.length < 2 || i < 0) return null;
+  const chars = Array.from(nm.t), n = chars.length; if (!n) return null;
+  const fsMax = ROAD_W * 0.72, cap = 0.92 * TILE;
+  const W = Math.min(run.length, Math.max(2, Math.ceil(n * fsMax / cap)));    // 글자 수에 맞는 칸 수 (최소 2칸)
+  let st = i; if (st + W > run.length) st = run.length - W;                  // 모자라면 왼쪽(위)으로 당긴다
+  const a = run[st], b = run[st + W - 1], cx = ((a[0] + b[0]) / 2 + 0.5) * TILE, cy = ((a[1] + b[1]) / 2 + 0.5) * TILE, span = W * TILE * 0.92;
+  let fs;
+  if (nm.o === 'h') { const w = measure(fsMax, nm.t); fs = Math.min(fsMax, fsMax * span / Math.max(w, 1)); }
+  else fs = Math.min(fsMax, span / (n * 1.08));
+  return { chars, cx, cy, fs, anchorCol: 0 };
+}
+function drawRoadNames(l) {
+  if (!l.names || !l.names.length || TILE * view.s < 30) return;                    // 타일 30px 미만이면 부대명처럼 가린다
+  const { s, ox, oy } = view, set = roadSet(l), col = new Map((l.cells || []).map(c => [c[0] + ',' + c[1], c[2] || 0]));
+  ctx.save();
+  ctx.setTransform(dpr * s, 0, 0, dpr * s, dpr * ox, dpr * oy);
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  const measure = (fs, t) => { ctx.font = `700 ${fs}px sans-serif`; return ctx.measureText(t).width; };
+  l.names.forEach(nm => {
+    const lay = nameLayout(set, nm, measure); if (!lay) return;
+    const c = ROAD_COLORS[col.get(nm.x + ',' + nm.y) || 0], lum = parseInt(c.slice(1, 3), 16) * 0.3 + parseInt(c.slice(3, 5), 16) * 0.59 + parseInt(c.slice(5, 7), 16) * 0.11;
+    ctx.fillStyle = lum > 140 ? '#2b2f36' : '#ffffff'; ctx.font = `700 ${lay.fs}px sans-serif`;
+    if (nm.o === 'h') ctx.fillText(nm.t, lay.cx, lay.cy);
+    else { const step = lay.fs * 1.08, y0 = lay.cy - step * (lay.chars.length - 1) / 2; lay.chars.forEach((ch, k) => ctx.fillText(ch, lay.cx, y0 + k * step)); }
+  });
   ctx.restore();
 }
 // 곡선이 지나는 칸 (삭제 범위/선택 판정용): 곡선을 촘촘히 표본해서 칸 번호를 모은다
@@ -725,7 +807,7 @@ function drawDraft() {
   if (draft && draft.length && mode && mode.kind === 'curve') {            // 곡선 도로: 시작 · 조절점 · 도착, 마우스를 움직이면 곡선이 미리 보인다
     const pts = draft.length === 2 && curveHover ? [...draft, curveHover] : draft;
     if (pts.length === 3) {
-      ctx.save(); ctx.setTransform(dpr * s, 0, 0, dpr * s, dpr * ox, dpr * oy); ctx.strokeStyle = 'rgba(107,112,120,.55)'; ctx.lineWidth = ROAD_W; ctx.lineCap = 'round';
+      ctx.save(); ctx.setTransform(dpr * s, 0, 0, dpr * s, dpr * ox, dpr * oy); ctx.strokeStyle = 'rgba(150,155,165,.6)'; ctx.lineWidth = ROAD_W; ctx.lineCap = 'round';
       ctx.stroke(curvePath(pts)); ctx.restore();
     }
     ctx.setLineDash([4, 4]); ctx.lineWidth = 1.2; ctx.strokeStyle = 'rgba(25,25,25,.55)';        // 시작-조절점-도착 안내선
@@ -1073,10 +1155,16 @@ function tap(e, target) {
     roadSel = { a: [t.x, t.y], kind: 'add' }; saveLayers(); renderLayerList(); render();
     return;
   }
-  if (mode && mode.kind === 'roaddel') {              // 도로 삭제: 도로가 있는 칸에서만 반응, 없는 칸은 아무 일도 없다
+  if (mode && mode.kind === 'roadedit') {             // 도로 수정: 도로가 아닌 칸에서도 시작할 수 있다
     const t = tileAt(e.clientX, e.clientY);
-    if (!t || !hasAnyRoad(t.x, t.y)) return;
-    roadSel = { kind: 'del', rect: { x0: t.x, y0: t.y, x1: t.x, y1: t.y }, last: [t.x, t.y] };
+    if (!t) return;
+    closePalette();
+    if (roadSel && roadSel.naming) {                  // 도로명 지정 중: 선택 범위 안의 도로 칸에서만 반응
+      const r = roadSel.rect;
+      if (t.x >= r.x0 && t.x <= r.x1 && t.y >= r.y0 && t.y <= r.y1) openNameBox(t.x, t.y);
+      return;
+    }
+    roadSel = { kind: 'edit', rect: { x0: t.x, y0: t.y, x1: t.x, y1: t.y }, last: [t.x, t.y] };
     render();
     return;
   }
@@ -1092,14 +1180,19 @@ function tap(e, target) {
   const el = target.closest && target.closest('.unit');
   if (el) { roadSel = null; openSheet(el.dataset.id); render(); return; }
   const t = tileAt(e.clientX, e.clientY);
-  if (t && hasAnyRoad(t.x, t.y)) { roadSel = { a: [t.x, t.y], kind: 'add' }; closeSheet(); render(); return; }   // 도로(곡선 포함) 칸을 누르면 그 칸에만 핸들이 뜨고, 곡선을 가로지르는 직선 도로도 여기서 시작할 수 있다
+  if (t && hasAnyRoad(t.x, t.y)) {                                                  // 도로(곡선 포함) 칸을 누르면 도로 수정 모드: 범위 지정, 색상, 도로명, 삭제
+    closeSheet(); setMode({ kind: 'roadedit' });
+    roadSel = { kind: 'edit', rect: { x0: t.x, y0: t.y, x1: t.x, y1: t.y }, last: [t.x, t.y] };
+    render(); return;
+  }
   if (roadSel) { roadSel = null; render(); }
   closeSheet();
 }
 
 // ---------- 모드 배너 ----------
 function setMode(m) {
-  if (mode && (mode.kind === 'road' || mode.kind === 'roaddel') && !(m && m.kind === mode.kind)) roadSel = null;
+  if (mode && (mode.kind === 'road' || mode.kind === 'roadedit') && !(m && m.kind === mode.kind)) roadSel = null;
+  closePalette(); hideNameBox();
   curveHover = null;
   const drawing = k => k && (k.kind === 'zone' || k.kind === 'line' || k.kind === 'curve');
   if (drawing(mode) && (!m || m.kind !== mode.kind)) { draft = null; redoStack = []; lastPt = null; }   // 작성 중이던 구역/경계선은 취소
@@ -1120,25 +1213,32 @@ function finishDraft() {
 
 // 작성 중 마지막 지점 옆에 뜨는 HUD: 취소(X) · [완료(✓), 경계선만] · 이전(←) · 다시(→)
 function placeZoneHud() {
-  const delSel = !!(mode && mode.kind === 'roaddel' && roadSel && roadSel.kind === 'del');
+  const delSel = !!(mode && mode.kind === 'roadedit' && roadSel && roadSel.kind === 'edit');
   const pt = delSel ? [(roadSel.last[0] + 0.5) * TILE, (roadSel.last[1] + 0.5) * TILE] : lastPt;       // 삭제 모드는 마지막 선택 칸 옆
   const hud = $('zoneHud'), on = delSel || !!(mode && (mode.kind === 'zone' || mode.kind === 'line' || mode.kind === 'curve') && lastPt);
   hud.classList.toggle('on', on);
   if (!on) return;
-  $('zDone').style.display = mode.kind === 'line' || delSel ? '' : 'none';   // 완료(✓)는 경계선과 도로 삭제에서만
-  $('zUndo').style.display = $('zRedo').style.display = delSel ? 'none' : '';   // 도로 삭제에는 이전/다시가 없다
+  $('zDone').style.display = mode.kind === 'line' || delSel ? '' : 'none';   // 완료(✓)는 경계선과 도로 수정(범위 내 도로 삭제 적용)에서만
+  $('zUndo').style.display = $('zRedo').style.display = delSel ? 'none' : '';   // 도로 수정에는 이전/다시가 없다
+  $('zPalWrap').style.display = $('zPen').style.display = delSel ? '' : 'none';   // 색상 팔레트와 도로명은 도로 수정에서만
+  $('zPen').classList.toggle('on', delSel && !!roadSel.naming);
   $('zDone').disabled = delSel ? false : !(draft && draft.length >= 2);
   $('zUndo').disabled = !(draft && draft.length);
   $('zRedo').disabled = !redoStack.length;
   const r = vp.getBoundingClientRect();
   let x = r.left + view.ox + pt[0] * view.s + 14, y = r.top + view.oy + pt[1] * view.s - 15;
-  const w = hud.offsetWidth || (delSel ? 66 : mode.kind === 'line' ? 138 : 102);
+  const w = hud.offsetWidth || (delSel ? 138 : mode.kind === 'line' ? 138 : 102);
   if (x + w > r.right - 6) x = r.left + view.ox + pt[0] * view.s - 14 - w;            // 오른쪽 공간이 모자라면 왼쪽으로
-  y = Math.max(r.top + 56, Math.min(r.bottom - 40, y));
+  y = Math.max(r.top + 56, Math.min(r.bottom - (delSel ? 130 : 40), y));
   hud.style.left = Math.max(6, x) + 'px'; hud.style.top = y + 'px';
 }
 $('zCancel').onclick = () => setMode(null);
-$('zDone').onclick = () => (mode && mode.kind === 'roaddel' ? applyRoadDelete() : finishDraft());
+$('zDone').onclick = () => (mode && mode.kind === 'roadedit' ? applyRoadDelete() : finishDraft());
+// 도로 수정 HUD: 색상 팔레트(아래로 4배 길어짐)와 도로명(연필)
+const closePalette = () => $('zPalWrap').classList.remove('open');
+$('zPal').onclick = () => $('zPalWrap').classList.toggle('open');
+$('zPalWrap').addEventListener('click', e => { const c = e.target.closest('.pc'); if (c) { applyRoadColor(Number(c.dataset.col)); closePalette(); } });
+$('zPen').onclick = () => { if (!roadSel || roadSel.kind !== 'edit') return; closePalette(); hideNameBox(); roadSel.naming = !roadSel.naming; render(); };
 $('zUndo').onclick = () => {
   if (!draft || !draft.length) return;
   curveHover = null;
@@ -1233,7 +1333,6 @@ const roadLayer = () => layers.list.find(l => l.type === 'road');
 const hasRoad = (tx, ty) => { const l = roadLayer(); return !!(l && l.show && l.cells.some(c => c[0] === tx && c[1] === ty)); };      // 칸 도로
 const hasAnyRoad = (tx, ty) => hasRoad(tx, ty) || (() => { const l = roadLayer(); return !!(l && l.show && l.curves.some(c => curveCells(c).has(tx + ',' + ty))); })();   // 곡선 도로 포함
 $('roadAdd').onclick = () => { roadSel = null; setSidebar(false); closeSheet(); setMode({ kind: 'road' }); };
-$('roadDel').onclick = () => { roadSel = null; setSidebar(false); closeSheet(); setMode({ kind: 'roaddel' }); };
 
 const selBox = () => {                     // 선택 영역(칸 단위 bbox)
   if (!roadSel) return null;
@@ -1243,7 +1342,8 @@ const selBox = () => {                     // 선택 영역(칸 단위 bbox)
 function placeRoadHandles() {
   const box = $('roadHandles'), b = selBox();
   box.classList.toggle('on', !!b);
-  box.classList.toggle('del', !!roadSel && roadSel.kind === 'del');
+  box.classList.toggle('del', !!roadSel && roadSel.kind === 'edit');
+  box.classList.toggle('naming', !!roadSel && !!roadSel.naming);          // 도로명 지정 중에는 범위가 고정되어 핸들이 터치를 가로채지 않는다
   if (!b) return;
   const tp = TILE * view.s, vr = vp.getBoundingClientRect();
   const pos = { tl: [b.x0, b.y0], tr: [b.x1 + 1, b.y0], bl: [b.x0, b.y1 + 1], br: [b.x1 + 1, b.y1 + 1] };
@@ -1254,7 +1354,7 @@ function placeRoadHandles() {
 }
 function drawRoadSelection() {
   const b = selBox(); if (!b) return;
-  const { s, ox, oy } = view, tp = TILE * s, del = roadSel.kind === 'del';
+  const { s, ox, oy } = view, tp = TILE * s, del = roadSel.kind === 'edit';
   ctx.save();
   if (del) { ctx.fillStyle = 'rgba(224,90,86,.14)'; ctx.fillRect(ox + b.x0 * tp, oy + b.y0 * tp, (b.x1 - b.x0 + 1) * tp, (b.y1 - b.y0 + 1) * tp); }
   ctx.setLineDash(del ? [] : [5, 4]); ctx.lineWidth = del ? 2 : 1.5; ctx.strokeStyle = del ? 'rgba(224,110,106,.95)' : '#2d6cdf';
@@ -1285,7 +1385,7 @@ function aimFrom(e, d) {
   });
   box.addEventListener('pointermove', e => {
     if (!d || e.pointerId !== d.pid || !roadSel) return;
-    if (roadSel.kind === 'del') {                                    // 삭제 범위: 모서리를 놓은 격자 위치로 사각 범위를 자유롭게 늘리고 줄인다
+    if (roadSel.kind === 'edit') {                                   // 수정 범위: 모서리를 놓은 격자 위치로 사각 범위를 자유롭게 늘리고 줄인다 (도로가 아닌 칸도 포함 가능)
       const tp = TILE * view.s, rc = roadSel.rect, c = d.c, clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
       const gx = Math.round((e.clientX - view.ox) / tp - d.offX), gy = Math.round((e.clientY - view.oy) / tp - d.offY);
       if (c === 'tl' || c === 'bl') rc.x0 = clamp(gx, 0, rc.x1); else rc.x1 = clamp(gx - 1, rc.x0, N - 1);
@@ -1326,15 +1426,59 @@ function aimFrom(e, d) {
 })();
 // 삭제 모드 ✓: 선택한 범위의 도로 칸을 지운다
 function applyRoadDelete() {
-  if (!roadSel || roadSel.kind !== 'del') return;
+  if (!roadSel || roadSel.kind !== 'edit') return;
   const { x0, y0, x1, y1 } = roadSel.rect, lay = roadLayer();
   if (lay) {
     lay.cells = lay.cells.filter(c => !(c[0] >= x0 && c[0] <= x1 && c[1] >= y0 && c[1] <= y1));
     lay.curves = lay.curves.filter(c => ![...curveCells(c)].some(k => { const [cx, cy] = k.split(',').map(Number); return cx >= x0 && cx <= x1 && cy >= y0 && cy <= y1; }));   // 범위를 지나는 곡선 도로도 삭제
+    const set = roadSet(lay);
+    lay.names = (lay.names || []).filter(n => set.has(n.x + ',' + n.y));              // 지워진 도로의 도로명도 함께 삭제
     dropIfEmpty(lay);
   }
   roadSel = null; saveLayers(); renderLayerList(); setMode(null);
 }
+
+// 팔레트: 선택한 범위 안의 모든 도로를 지정한 색으로 (곡선은 범위를 지나면 통째로)
+function applyRoadColor(col) {
+  if (!roadSel || roadSel.kind !== 'edit') return;
+  const { x0, y0, x1, y1 } = roadSel.rect, lay = roadLayer(); if (!lay) return;
+  lay.cells.forEach(c => { if (c[0] >= x0 && c[0] <= x1 && c[1] >= y0 && c[1] <= y1) c[2] = col; });
+  lay.curves.forEach(c => { if ([...curveCells(c)].some(k => { const [cx, cy] = k.split(',').map(Number); return cx >= x0 && cx <= x1 && cy >= y0 && cy <= y1; })) c[3] = col; });
+  saveLayers(); render();
+}
+
+// 도로명 입력란: 팝업 없이 해당 칸 위에 바로 뜨고, 엔터나 포커스를 잃으면 확정된다
+let nameCell = null;
+function hideNameBox() { const b = $('roadNameBox'); if (b) b.classList.remove('on'); nameCell = null; }
+function openNameBox(x, y) {
+  const lay = roadLayer(); if (!lay) return;
+  const set = roadSet(lay), o = nameOrientation(set, x, y);
+  if (!set.has(x + ',' + y) || !o) { roadSel.naming = false; render(); return; }   // 도로가 아니거나 1x1이면 공간이 부족하므로 동작을 취소한다
+  nameCell = { x, y, o };
+  const ex = (lay.names || []).find(n => n.x === x && n.y === y), box = $('roadNameBox'), inp = $('roadNameInput');
+  inp.value = ex ? ex.t : '';
+  const r = vp.getBoundingClientRect(), tp = TILE * view.s;
+  box.classList.add('on');
+  const bw = box.offsetWidth || 190;
+  box.style.left = Math.max(6, Math.min(r.right - bw - 6, r.left + view.ox + (x + 0.5) * tp - bw / 2)) + 'px';
+  box.style.top = Math.max(r.top + 56, r.top + view.oy + (y + 0.5) * tp - 20) + 'px';
+  inp.focus();
+}
+(() => {
+  const inp = $('roadNameInput');
+  const commit = () => {
+    if (!nameCell) return;
+    const lay = roadLayer(), t = inp.value.trim().slice(0, 14);
+    if (lay) {
+      lay.names = (lay.names || []).filter(n => !(n.x === nameCell.x && n.y === nameCell.y));
+      if (t) lay.names.push({ x: nameCell.x, y: nameCell.y, o: nameCell.o, t });
+    }
+    saveLayers(); render();
+  };
+  inp.addEventListener('input', commit);                                // 입력하는 대로 도로에 바로 반영
+  inp.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); inp.blur(); } });
+  inp.addEventListener('blur', () => { commit(); hideNameBox(); if (roadSel) roadSel.naming = false; render(); });
+})();
 
 const startDraw = kind => { draft = []; redoStack = []; lastPt = null; setSidebar(false); closeSheet(); setMode({ kind }); };
 $('zoneAdd').onclick = () => startDraw('zone');
