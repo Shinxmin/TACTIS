@@ -640,6 +640,8 @@ function layerOf(type) {
   return l;
 }
 function dropIfEmpty(l) { if (l && layerEmpty(l)) layers.list = layers.list.filter(x => x !== l); }
+let lastPtrType = 'mouse';                          // 마지막으로 지도를 누른 입력 방식 (touch면 HUD를 손가락에서 먼 곳에 둔다)
+vp.addEventListener('pointerdown', e => { lastPtrType = e.pointerType || 'mouse'; }, true);
 let curveHover = null;                              // 곡선 도로 미리보기용 마우스 위치
 let draft = null;                                   // 작성 중인 구역/경계선 지점 [[x,y], ...] (미터)
 let redoStack = [];                                 // undo로 되돌린 지점 (redo용)
@@ -1237,14 +1239,32 @@ function placeZoneHud() {
   $('zUndo').style.display = $('zRedo').style.display = delSel ? 'none' : '';   // 도로 수정에는 이전/다시가 없다
   $('zCancel').style.display = delSel ? 'none' : '';                           // 도로 수정에는 취소 버튼이 없다 (빈 칸/건물을 누르면 취소)
   $('zDone').classList.toggle('asx', delSel); $('zDone').setAttribute('aria-label', delSel ? '범위 내 도로 삭제' : '완료');   // 도로 수정의 적용 버튼은 X 아이콘
-  $('zPalWrap').style.display = $('zPen').style.display = $('zPlus').style.display = delSel ? '' : 'none';   // 색상 팔레트와 도로명은 도로 수정에서만
+  // 선택한 범위에 도로가 없으면 도로 관련 버튼(지우개, 색상, 도로명)은 숨기고 + 만 보인다
+  let hasR = false;
+  if (delSel) {
+    const { x0, y0, x1, y1 } = roadSel.rect, lay = roadLayer(), inR = (cx, cy) => cx >= x0 && cx <= x1 && cy >= y0 && cy <= y1;
+    hasR = !!lay && (lay.cells.some(c => inR(c[0], c[1])) || lay.curves.some(c => [...curveCells(c)].some(k => { const [cx, cy] = k.split(',').map(Number); return inR(cx, cy); })));
+    if (!hasR) { closePalette(); if (roadSel.naming) { roadSel.naming = false; hideNameBox(); } }
+  }
+  $('zDone').style.display = delSel ? (hasR ? '' : 'none') : $('zDone').style.display;
+  $('zPalWrap').style.display = $('zPen').style.display = delSel && hasR ? '' : 'none';
+  $('zPlus').style.display = delSel ? '' : 'none';   // 색상 팔레트와 도로명은 도로 수정에서만
   $('zPen').classList.toggle('on', delSel && !!roadSel.naming);
   $('zDone').disabled = delSel ? false : !(draft && draft.length >= 2);
   $('zUndo').disabled = !(draft && draft.length);
   $('zRedo').disabled = !redoStack.length;
   const r = vp.getBoundingClientRect();
   let x = r.left + view.ox + pt[0] * view.s + 14, y = r.top + view.oy + pt[1] * view.s - 15;
-  const w = hud.offsetWidth || (delSel ? 138 : mode.kind === 'line' ? 138 : 102);
+  if (lastPtrType === 'touch') {
+    // 터치 화면: 손가락이 가리는 지도 위에 HUD를 두면 다음 지점을 누를 때 HUD 버튼(취소 등)이 눌려 동작이 취소되므로, 지점과 떨어진 화면 위쪽 가운데에 고정한다.
+    // 마지막 지점이 그 근처면 아래쪽 가운데로 옮긴다.
+    const hw = hud.offsetWidth || 102, px = r.left + view.ox + pt[0] * view.s, py = r.top + view.oy + pt[1] * view.s;
+    let fx = r.left + (r.width - hw) / 2, fy = r.top + 62;
+    if (Math.abs(py - (fy + 15)) < 70 && px > fx - 30 && px < fx + hw + 30) fy = r.bottom - 120;
+    hud.style.left = fx + 'px'; hud.style.top = fy + 'px';
+    return;
+  }
+  const w = hud.offsetWidth || (delSel ? (hasR ? 138 : 30) : mode.kind === 'line' ? 138 : 102);
   if (x + w > r.right - 6) x = r.left + view.ox + pt[0] * view.s - 14 - w;            // 오른쪽 공간이 모자라면 왼쪽으로
   y = Math.max(r.top + 56, Math.min(r.bottom - (delSel ? 130 : 40), y));
   hud.style.left = Math.max(6, x) + 'px'; hud.style.top = y + 'px';
