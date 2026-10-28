@@ -617,22 +617,56 @@ let lastPt = null;                                  // 마지막으로 누른 �
 const SNAP_PX = 16;                                 // 시작 지점 근처 이 거리 안을 누르면 이어진 것으로 본다
 
 // 도로: 칸마다 중앙 정렬된 35% 폭 정사각형을 두고, 서로 이어진 칸 사이도 같은 폭으로 잇는다. 한 번에 한 색으로 채워 색이 균일하다.
+// 곡선의 중심선 위 표본점 (5m 이하 간격) — 곡선과의 거리 계산용
+const sampleCache = new WeakMap();
+function curveSamples(c) {
+  let r = sampleCache.get(c); if (r) return r;
+  const len = Math.hypot(c[1][0] - c[0][0], c[1][1] - c[0][1]) + Math.hypot(c[2][0] - c[1][0], c[2][1] - c[1][1]), n = Math.max(12, Math.ceil(len / 4));
+  r = [];
+  for (let i = 0; i <= n; i++) { const t = i / n, u = 1 - t; r.push([u * u * c[0][0] + 2 * u * t * c[1][0] + t * t * c[2][0], u * u * c[0][1] + 2 * u * t * c[1][1] + t * t * c[2][1]]); }
+  sampleCache.set(c, r); return r;
+}
+
 function roadPath(cells, curves) {
-  const T = TILE, h = T * 0.175, set = new Set(cells.map(c => c[0] + ',' + c[1])), p = new Path2D();
+  const T = TILE, h = T * 0.175, key = (x, y) => x + ',' + y, set = new Set(cells.map(c => key(c[0], c[1]))), p = new Path2D();
   // 곡선 도로의 시작/도착 칸은 사각형 대신 원(반지름 = 도로 반폭)으로 처리: 직선 도로 끝의 사각 모서리가 곡선 옆으로 삐져나오지 않고 매끄럽게 이어진다
   const disk = new Set();
-  (curves || []).forEach(c => [c[0], c[2]].forEach(q => disk.add(Math.floor(q[0] / T) + ',' + Math.floor(q[1] / T))));
+  (curves || []).forEach(c => [c[0], c[2]].forEach(q => disk.add(key(Math.floor(q[0] / T), Math.floor(q[1] / T)))));
+  // 곡선까지의 거리: 표본점을 칸별로 모아 주변 3x3칸만 본다
+  const grid = new Map();
+  (curves || []).forEach(c => curveSamples(c).forEach(q => { const k = key(Math.floor(q[0] / T), Math.floor(q[1] / T)); (grid.get(k) || grid.set(k, []).get(k)).push(q); }));
+  const nearCurve = (px, py) => {
+    let best = Infinity; const gx = Math.floor(px / T), gy = Math.floor(py / T);
+    for (let j = -1; j <= 1; j++) for (let i = -1; i <= 1; i++) { const a = grid.get(key(gx + i, gy + j)); if (a) for (const q of a) { const d = Math.hypot(q[0] - px, q[1] - py); if (d < best) best = d; } }
+    return best;
+  };
+  const tip = new Map();                                   // 끝 정리된 칸의 실제 끝점
+  const skip = new Set();                                  // 곡선 안에 완전히 묻힌 외톨이 칸
   cells.forEach(([x, y]) => {
-    const cx = (x + 0.5) * T, cy = (y + 0.5) * T, d0 = disk.has(x + ',' + y);
-    if (d0) { p.moveTo(cx + h, cy); p.arc(cx, cy, h, 0, Math.PI * 2); } else p.rect(cx - h, cy - h, 2 * h, 2 * h);
-    if (set.has((x + 1) + ',' + y)) {                      // 오른쪽 이웃과 연결: 원이면 중심에서 시작/끝
-      const d1 = disk.has((x + 1) + ',' + y), x0 = cx - (d0 ? 0 : h), x1 = cx + T + (d1 ? 0 : h);
-      p.rect(x0, cy - h, x1 - x0, 2 * h);
+    const k = key(x, y), cx = (x + 0.5) * T, cy = (y + 0.5) * T;
+    if (disk.has(k)) { p.moveTo(cx + h, cy); p.arc(cx, cy, h, 0, Math.PI * 2); return; }
+    const nb = [[1, 0], [-1, 0], [0, 1], [0, -1]].filter(([dx, dy]) => set.has(key(x + dx, y + dy)));
+    if (nb.length <= 1 && grid.size && nearCurve(cx, cy) <= h + 0.5) {
+      // 직선 도로의 끝(또는 외톨이 칸)이 곡선 띠 안에 있으면, 칸 중앙에서 시작하느라 생기는 사각 끝이 곡선 반대쪽으로 튀어나온다.
+      // 끝을 뒤로 물려서 끝선의 양 모서리까지 곡선 띠 안에 들어오게 자동 보정한다.
+      if (!nb.length) { skip.add(k); return; }
+      const o = [-nb[0][0], -nb[0][1]], perp = [-o[1], o[0]];
+      let ext = 0;
+      for (let s = 0; s >= -0.6 * T; s -= 2) {
+        const ex = cx + o[0] * s, ey = cy + o[1] * s;
+        if (nearCurve(ex, ey) <= h + 0.5 && nearCurve(ex + perp[0] * h, ey + perp[1] * h) <= h + 0.5 && nearCurve(ex - perp[0] * h, ey - perp[1] * h) <= h + 0.5) { ext = s; break; }
+      }
+      tip.set(k, [cx + o[0] * ext, cy + o[1] * ext]);
+      return;
     }
-    if (set.has(x + ',' + (y + 1))) {                      // 아래쪽 이웃과 연결
-      const d1 = disk.has(x + ',' + (y + 1)), y0 = cy - (d0 ? 0 : h), y1 = cy + T + (d1 ? 0 : h);
-      p.rect(cx - h, y0, 2 * h, y1 - y0);
-    }
+    p.rect(cx - h, cy - h, 2 * h, 2 * h);
+  });
+  const at = (x, y) => tip.get(key(x, y)) || [(x + 0.5) * T, (y + 0.5) * T];
+  cells.forEach(([x, y]) => {
+    if (skip.has(key(x, y))) return;
+    const a = at(x, y);
+    if (set.has(key(x + 1, y))) { const b = at(x + 1, y); p.rect(Math.min(a[0], b[0]), a[1] - h, Math.abs(b[0] - a[0]), 2 * h); }    // 오른쪽 이웃과 연결
+    if (set.has(key(x, y + 1))) { const b = at(x, y + 1); p.rect(a[0] - h, Math.min(a[1], b[1]), 2 * h, Math.abs(b[1] - a[1])); }    // 아래쪽 이웃과 연결
   });
   return p;
 }
@@ -1031,7 +1065,7 @@ function tap(e, target) {
     const t = tileAt(e.clientX, e.clientY);
     if (!t) return;
     if (roadSel) {                                    // 이미 시작한 뒤: 도로 칸이면 그 칸 선택, 아니면 종료
-      if (hasRoad(t.x, t.y)) roadSel = { a: [t.x, t.y], kind: 'add' }; else { roadSel = null; setMode(null); return; }
+      if (hasAnyRoad(t.x, t.y)) roadSel = { a: [t.x, t.y], kind: 'add' }; else { roadSel = null; setMode(null); return; }
       render(); return;
     }
     const lay = layerOf('road'); lay.show = true;
@@ -1058,7 +1092,7 @@ function tap(e, target) {
   const el = target.closest && target.closest('.unit');
   if (el) { roadSel = null; openSheet(el.dataset.id); render(); return; }
   const t = tileAt(e.clientX, e.clientY);
-  if (t && hasRoad(t.x, t.y)) { roadSel = { a: [t.x, t.y], kind: 'add' }; closeSheet(); render(); return; }   // 도로 칸을 누르면 그 칸에만 핸들이 뜬다
+  if (t && hasAnyRoad(t.x, t.y)) { roadSel = { a: [t.x, t.y], kind: 'add' }; closeSheet(); render(); return; }   // 도로(곡선 포함) 칸을 누르면 그 칸에만 핸들이 뜨고, 곡선을 가로지르는 직선 도로도 여기서 시작할 수 있다
   if (roadSel) { roadSel = null; render(); }
   closeSheet();
 }
@@ -1270,18 +1304,19 @@ function aimFrom(e, d) {
         cells = cells.filter(c => !gone.has(key(c)));
         sel = seq(m);
       } else {                                                         // 빈 쪽으로 끌면 늘어난다
+        if (!baseSet.has(key(d.a))) cells.push(d.a.slice());                // 곡선 위 칸에서 시작한 직선 도로는 시작 칸도 도로 칸이 된다
         for (let k = 1; k <= m; k++) { const c = seq(k); if (!baseSet.has(key(c))) cells.push(c); }
         sel = seq(m);
       }
     }
     const lay = layerOf('road'); lay.cells = cells; lay.show = true; dropIfEmpty(lay);
     roadSel.a = (cells.length || m === 0) ? sel : null;
-    if (!cells.length) roadSel = null;
+    if (!cells.length && m > 0) roadSel = null;                         // 줄여서 칸이 모두 사라진 경우에만 선택 해제
     render();
   });
   const end = e => {
     if (!d || e.pointerId !== d.pid) return; d = null;
-    if (roadSel && roadSel.kind === 'add' && roadSel.a && !hasRoad(roadSel.a[0], roadSel.a[1])) {   // 줄인 뒤 기준 칸이 도로가 아니면 끝 칸으로 옮긴다
+    if (roadSel && roadSel.kind === 'add' && roadSel.a && !hasAnyRoad(roadSel.a[0], roadSel.a[1])) {   // 줄인 뒤 기준 칸이 도로가 아니면 끝 칸으로 옮긴다
       const lay = roadLayer(); roadSel = lay && lay.cells.length ? { a: lay.cells[lay.cells.length - 1].slice(), kind: 'add' } : null;
     }
     saveLayers(); renderLayerList(); render();
