@@ -241,6 +241,7 @@
   <section>
     <h2>도로</h2>
     <div class="duo"><button class="btn primary" id="roadAdd">추가하기</button><button class="btn" id="roadDel">삭제하기</button></div>
+    <button class="btn primary" id="roadCurve" style="margin-top:6px">곡선 추가하기</button>
   </section>
 </aside>
 <div id="confirmWrap"><div id="confirm" role="dialog" aria-modal="true">
@@ -566,20 +567,22 @@ const TYPE_NAME = { zone: '구역', line: '경계선', road: '도로', terrain: 
 // 레이어는 실제로 존재할 때만 목록에 나온다 (지형은 산지가 5% 이상일 때).
 const defaultLayers = () => ({ fieldName: '', list: [] });
 let layers = defaultLayers();
+function layerEmpty(l) { return !((l.items && l.items.length) || (l.cells && l.cells.length) || (l.curves && l.curves.length)); }
 function normalizeLayers(raw) {
   const out = [], by = {};
   (raw || []).forEach(l => {
     if (l.type === 'terrain') { if (!by.terrain) out.push(by.terrain = { id: 'terrain', type: 'terrain', name: l.name || '', show: l.show !== false }); return; }
     if (!['zone', 'line', 'road'].includes(l.type)) return;
     let t = by[l.type];
-    if (!t) { out.push(t = by[l.type] = { id: l.type, type: l.type, name: l.name || '', show: l.show !== false, ...(l.type === 'road' ? { cells: [] } : { items: [] }) }); }
+    if (!t) { out.push(t = by[l.type] = { id: l.type, type: l.type, name: l.name || '', show: l.show !== false, ...(l.type === 'road' ? { cells: [], curves: [] } : { items: [] }) }); }
     else if (l.show !== false) t.show = true;
     if (l.type === 'road') {                                       // 이전 형식(범위)의 도로는 칸 목록으로 변환
       const cs = l.cells || (l.rect ? (() => { const r = l.rect, a = []; for (let y = r.y0; y <= r.y1; y++) for (let x = r.x0; x <= r.x1; x++) a.push([x, y]); return a; })() : []);
       cs.forEach(c => { if (!t.cells.some(q => q[0] === c[0] && q[1] === c[1])) t.cells.push(c); });
+      (l.curves || []).forEach(c => { if (Array.isArray(c) && c.length === 3) t.curves.push(c); });   // 곡선 도로: [시작, 조절점, 도착]
     } else (l.items || (l.pts ? [l.pts] : [])).forEach(p => t.items.push(p));
   });
-  return out.filter(l => l.type === 'terrain' || (l.items && l.items.length) || (l.cells && l.cells.length));
+  return out.filter(l => l.type === 'terrain' || !layerEmpty(l));
 }
 try {
   const l = JSON.parse(localStorage.getItem(LKEY));
@@ -603,10 +606,11 @@ syncTerrainLayer();
 // 유형별 통합 레이어를 가져온다 (없으면 맨 위에 새로 만든다)
 function layerOf(type) {
   let l = layers.list.find(x => x.type === type);
-  if (!l) { l = { id: type, type, name: '', show: true, ...(type === 'road' ? { cells: [] } : { items: [] }) }; layers.list.unshift(l); }
+  if (!l) { l = { id: type, type, name: '', show: true, ...(type === 'road' ? { cells: [], curves: [] } : { items: [] }) }; layers.list.unshift(l); }
   return l;
 }
-function dropIfEmpty(l) { if (l && !(l.cells || l.items).length) layers.list = layers.list.filter(x => x !== l); }
+function dropIfEmpty(l) { if (l && layerEmpty(l)) layers.list = layers.list.filter(x => x !== l); }
+let curveHover = null;                              // 곡선 도로 미리보기용 마우스 위치
 let draft = null;                                   // 작성 중인 구역/경계선 지점 [[x,y], ...] (미터)
 let redoStack = [];                                 // undo로 되돌린 지점 (redo용)
 let lastPt = null;                                  // 마지막으로 누른 지점 (HUD 위치 기준)
@@ -622,14 +626,32 @@ function roadPath(cells) {
   });
   return p;
 }
+const ROAD_COLOR = '#6b7078', ROAD_W = TILE * 0.35;
+// 곡선 도로: [시작, 조절점, 도착]의 2차 베지어 곡선 (캔버스가 곡선을 매끄럽게 그린다)
+function curvePath(c, p) {
+  p = p || new Path2D();
+  p.moveTo(c[0][0], c[0][1]); p.quadraticCurveTo(c[1][0], c[1][1], c[2][0], c[2][1]);
+  return p;
+}
 function drawRoad(l) {
-  if (!l.cells || !l.cells.length || !l.show) return;
+  if (!l.show || !((l.cells && l.cells.length) || (l.curves && l.curves.length))) return;
   const { s, ox, oy } = view;
   ctx.save();
   ctx.setTransform(dpr * s, 0, 0, dpr * s, dpr * ox, dpr * oy);
-  ctx.fillStyle = '#6b7078';
-  ctx.fill(roadPath(l.cells));
+  ctx.fillStyle = ctx.strokeStyle = ROAD_COLOR;
+  if (l.cells && l.cells.length) ctx.fill(roadPath(l.cells));
+  if (l.curves && l.curves.length) { ctx.lineWidth = ROAD_W; ctx.lineCap = 'butt'; ctx.lineJoin = 'round'; l.curves.forEach(c => ctx.stroke(curvePath(c))); }   // 같은 불투명 색이라 겹쳐도 균일
   ctx.restore();
+}
+// 곡선이 지나는 칸 (삭제 범위/선택 판정용): 곡선을 촘촘히 표본해서 칸 번호를 모은다
+function curveCells(c) {
+  const set = new Set(), len = Math.hypot(c[1][0] - c[0][0], c[1][1] - c[0][1]) + Math.hypot(c[2][0] - c[1][0], c[2][1] - c[1][1]), n = Math.max(8, Math.ceil(len / 8));
+  for (let i = 0; i <= n; i++) {
+    const t = i / n, u = 1 - t, x = u * u * c[0][0] + 2 * u * t * c[1][0] + t * t * c[2][0], y = u * u * c[0][1] + 2 * u * t * c[1][1] + t * t * c[2][1];
+    const cx = Math.floor(x / TILE), cy = Math.floor(y / TILE);
+    if (cx >= 0 && cy >= 0 && cx < N && cy < N) set.add(cx + ',' + cy);
+  }
+  return set;
 }
 
 function drawLayerShape(l) {
@@ -656,7 +678,20 @@ function drawDraft() {
   const P = ([x, y]) => [ox + x * s, oy + y * s];
   ctx.save();
   ctx.lineJoin = 'round'; ctx.lineCap = 'round';
-  if (draft && draft.length) {
+  if (draft && draft.length && mode && mode.kind === 'curve') {            // 곡선 도로: 시작 · 조절점 · 도착, 마우스를 움직이면 곡선이 미리 보인다
+    const pts = draft.length === 2 && curveHover ? [...draft, curveHover] : draft;
+    if (pts.length === 3) {
+      ctx.save(); ctx.setTransform(dpr * s, 0, 0, dpr * s, dpr * ox, dpr * oy); ctx.strokeStyle = 'rgba(107,112,120,.55)'; ctx.lineWidth = ROAD_W; ctx.lineCap = 'butt';
+      ctx.stroke(curvePath(pts)); ctx.restore();
+    }
+    ctx.setLineDash([4, 4]); ctx.lineWidth = 1.2; ctx.strokeStyle = 'rgba(25,25,25,.55)';        // 시작-조절점-도착 안내선
+    ctx.beginPath(); pts.forEach((p, i) => { const [x, y] = P(p); i ? ctx.lineTo(x, y) : ctx.moveTo(x, y); }); ctx.stroke();
+    ctx.setLineDash([]);
+    draft.forEach((p, i) => {
+      const [x, y] = P(p); ctx.beginPath(); ctx.arc(x, y, i === 1 ? 4 : 5, 0, 7);
+      ctx.fillStyle = i === 1 ? '#fff' : 'rgba(25,25,25,.95)'; ctx.fill(); ctx.lineWidth = 2; ctx.strokeStyle = 'rgba(25,25,25,.95)'; ctx.stroke();
+    });
+  } else if (draft && draft.length) {
     ctx.setLineDash([]); ctx.lineWidth = 2; ctx.strokeStyle = 'rgba(25,25,25,.85)';
     ctx.beginPath(); draft.forEach((p, i) => { const [x, y] = P(p); i ? ctx.lineTo(x, y) : ctx.moveTo(x, y); }); ctx.stroke();
     draft.forEach((p, i) => {
@@ -961,7 +996,7 @@ function distToSeg(p, a, b) {
   return Math.hypot(p[0] - a[0] - t * dx, p[1] - a[1] - t * dy);
 }
 function tap(e, target) {
-  if (mode && (mode.kind === 'zone' || mode.kind === 'line')) {
+  if (mode && (mode.kind === 'zone' || mode.kind === 'line' || mode.kind === 'curve')) {
     const r = vp.getBoundingClientRect();
     const sx = e.clientX - r.left, sy = e.clientY - r.top;
     const w = [(sx - view.ox) / view.s, (sy - view.oy) / view.s];
@@ -970,7 +1005,9 @@ function tap(e, target) {
       const f = [view.ox + draft[0][0] * view.s, view.oy + draft[0][1] * view.s];
       if ((f[0] - sx) ** 2 + (f[1] - sy) ** 2 <= SNAP_PX * SNAP_PX) { finishDraft(); return; }   // 시작 지점과 이어짐 → 완료
     }
-    draft.push(w); lastPt = w; redoStack = [];       // 구역은 이어지지 않으면 n번째 지점으로 계속, 경계선은 완료 버튼으로 끝냄
+    if (mode.kind === 'curve' && draft.some(p => Math.hypot(p[0] - w[0], p[1] - w[1]) < TILE * 0.3)) return;   // 이미 찍은 지점과 겹치면 무시 (길이 0 곡선 방지)
+    draft.push(w); lastPt = w; redoStack = []; curveHover = null;       // 구역은 이어지지 않으면 n번째 지점으로 계속, 경계선은 완료 버튼으로 끝냄
+    if (mode.kind === 'curve' && draft.length === 3) { finishDraft(); return; }   // 곡선은 세 번째(도착) 지점에서 바로 완성
     render();
     return;
   }
@@ -988,7 +1025,7 @@ function tap(e, target) {
   }
   if (mode && mode.kind === 'roaddel') {              // 도로 삭제: 도로가 있는 칸에서만 반응, 없는 칸은 아무 일도 없다
     const t = tileAt(e.clientX, e.clientY);
-    if (!t || !hasRoad(t.x, t.y)) return;
+    if (!t || !hasAnyRoad(t.x, t.y)) return;
     roadSel = { kind: 'del', rect: { x0: t.x, y0: t.y, x1: t.x, y1: t.y }, last: [t.x, t.y] };
     render();
     return;
@@ -1013,7 +1050,8 @@ function tap(e, target) {
 // ---------- 모드 배너 ----------
 function setMode(m) {
   if (mode && (mode.kind === 'road' || mode.kind === 'roaddel') && !(m && m.kind === mode.kind)) roadSel = null;
-  const drawing = k => k && (k.kind === 'zone' || k.kind === 'line');
+  curveHover = null;
+  const drawing = k => k && (k.kind === 'zone' || k.kind === 'line' || k.kind === 'curve');
   if (drawing(mode) && (!m || m.kind !== mode.kind)) { draft = null; redoStack = []; lastPt = null; }   // 작성 중이던 구역/경계선은 취소
   mode = m;
   $('add').classList.toggle('active', !!m && m.kind === 'add');
@@ -1024,8 +1062,9 @@ function setMode(m) {
 function finishDraft() {
   if (!mode || !draft) return;
   const type = mode.kind;
-  if (draft.length < (type === 'zone' ? 3 : 2)) return;
-  const lay = layerOf(type); lay.items.push(draft); lay.show = true;
+  if (draft.length < (type === 'zone' ? 3 : type === 'curve' ? 3 : 2)) return;
+  if (type === 'curve') { const lay = layerOf('road'); lay.curves.push(draft.map(p => p.slice())); lay.show = true; }
+  else { const lay = layerOf(type); lay.items.push(draft); lay.show = true; }
   draft = null; saveLayers(); renderLayerList(); setMode(null);
 }
 
@@ -1033,7 +1072,7 @@ function finishDraft() {
 function placeZoneHud() {
   const delSel = !!(mode && mode.kind === 'roaddel' && roadSel && roadSel.kind === 'del');
   const pt = delSel ? [(roadSel.last[0] + 0.5) * TILE, (roadSel.last[1] + 0.5) * TILE] : lastPt;       // 삭제 모드는 마지막 선택 칸 옆
-  const hud = $('zoneHud'), on = delSel || !!(mode && (mode.kind === 'zone' || mode.kind === 'line') && lastPt);
+  const hud = $('zoneHud'), on = delSel || !!(mode && (mode.kind === 'zone' || mode.kind === 'line' || mode.kind === 'curve') && lastPt);
   hud.classList.toggle('on', on);
   if (!on) return;
   $('zDone').style.display = mode.kind === 'line' || delSel ? '' : 'none';   // 완료(✓)는 경계선과 도로 삭제에서만
@@ -1052,6 +1091,7 @@ $('zCancel').onclick = () => setMode(null);
 $('zDone').onclick = () => (mode && mode.kind === 'roaddel' ? applyRoadDelete() : finishDraft());
 $('zUndo').onclick = () => {
   if (!draft || !draft.length) return;
+  curveHover = null;
   redoStack.push(draft.pop());
   if (draft.length) lastPt = draft[draft.length - 1];     // HUD는 남은 마지막 지점 옆으로
   render();
@@ -1140,7 +1180,8 @@ $('layerList').addEventListener('keydown', e => { if (e.key === 'Enter' && e.tar
 // 이미 도로인 칸 쪽으로 끌면 끝에서부터 줄어든다. 삭제하기는 네 모서리 핸들로 (도로가 아닌 곳까지 포함한) 자유로운 사각 범위를 정하고 ✓로 적용한다.
 let roadSel = null;     // { a:[x,y] 기준 칸, kind:'add'|'del', dir:[dx,dy], m: 범위 칸 수(삭제 모드) }
 const roadLayer = () => layers.list.find(l => l.type === 'road');
-const hasRoad = (tx, ty) => { const l = roadLayer(); return !!(l && l.show && l.cells.some(c => c[0] === tx && c[1] === ty)); };
+const hasRoad = (tx, ty) => { const l = roadLayer(); return !!(l && l.show && l.cells.some(c => c[0] === tx && c[1] === ty)); };      // 칸 도로
+const hasAnyRoad = (tx, ty) => hasRoad(tx, ty) || (() => { const l = roadLayer(); return !!(l && l.show && l.curves.some(c => curveCells(c).has(tx + ',' + ty))); })();   // 곡선 도로 포함
 $('roadAdd').onclick = () => { roadSel = null; setSidebar(false); closeSheet(); setMode({ kind: 'road' }); };
 $('roadDel').onclick = () => { roadSel = null; setSidebar(false); closeSheet(); setMode({ kind: 'roaddel' }); };
 
@@ -1236,12 +1277,24 @@ function aimFrom(e, d) {
 function applyRoadDelete() {
   if (!roadSel || roadSel.kind !== 'del') return;
   const { x0, y0, x1, y1 } = roadSel.rect, lay = roadLayer();
-  if (lay) { lay.cells = lay.cells.filter(c => !(c[0] >= x0 && c[0] <= x1 && c[1] >= y0 && c[1] <= y1)); dropIfEmpty(lay); }
+  if (lay) {
+    lay.cells = lay.cells.filter(c => !(c[0] >= x0 && c[0] <= x1 && c[1] >= y0 && c[1] <= y1));
+    lay.curves = lay.curves.filter(c => ![...curveCells(c)].some(k => { const [cx, cy] = k.split(',').map(Number); return cx >= x0 && cx <= x1 && cy >= y0 && cy <= y1; }));   // 범위를 지나는 곡선 도로도 삭제
+    dropIfEmpty(lay);
+  }
   roadSel = null; saveLayers(); renderLayerList(); setMode(null);
 }
 
 const startDraw = kind => { draft = []; redoStack = []; lastPt = null; setSidebar(false); closeSheet(); setMode({ kind }); };
 $('zoneAdd').onclick = () => startDraw('zone');
+$('roadCurve').onclick = () => startDraw('curve');
+// 곡선 도로 미리보기: 시작, 조절점을 찍은 뒤 마우스를 움직이면 도착 지점에 따른 곡선이 보인다
+vp.addEventListener('pointermove', e => {
+  if (!(mode && mode.kind === 'curve' && draft && draft.length === 2) || e.pointerType !== 'mouse' || ptrs.size) return;
+  const r = vp.getBoundingClientRect();
+  curveHover = [(e.clientX - r.left - view.ox) / view.s, (e.clientY - r.top - view.oy) / view.s];
+  render();
+});
 $('lineAdd').onclick = () => startDraw('line');
 $('fit').onclick = fit;
 
