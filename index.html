@@ -617,12 +617,22 @@ let lastPt = null;                                  // 마지막으로 누른 �
 const SNAP_PX = 16;                                 // 시작 지점 근처 이 거리 안을 누르면 이어진 것으로 본다
 
 // 도로: 칸마다 중앙 정렬된 35% 폭 정사각형을 두고, 서로 이어진 칸 사이도 같은 폭으로 잇는다. 한 번에 한 색으로 채워 색이 균일하다.
-function roadPath(cells) {
-  const T = TILE, q = T * 0.325, set = new Set(cells.map(c => c[0] + ',' + c[1])), p = new Path2D();
+function roadPath(cells, curves) {
+  const T = TILE, h = T * 0.175, set = new Set(cells.map(c => c[0] + ',' + c[1])), p = new Path2D();
+  // 곡선 도로의 시작/도착 칸은 사각형 대신 원(반지름 = 도로 반폭)으로 처리: 직선 도로 끝의 사각 모서리가 곡선 옆으로 삐져나오지 않고 매끄럽게 이어진다
+  const disk = new Set();
+  (curves || []).forEach(c => [c[0], c[2]].forEach(q => disk.add(Math.floor(q[0] / T) + ',' + Math.floor(q[1] / T))));
   cells.forEach(([x, y]) => {
-    p.rect(x * T + q, y * T + q, T - 2 * q, T - 2 * q);
-    if (set.has((x + 1) + ',' + y)) p.rect(x * T + q, y * T + q, T * 2 - 2 * q, T - 2 * q);
-    if (set.has(x + ',' + (y + 1))) p.rect(x * T + q, y * T + q, T - 2 * q, T * 2 - 2 * q);
+    const cx = (x + 0.5) * T, cy = (y + 0.5) * T, d0 = disk.has(x + ',' + y);
+    if (d0) { p.moveTo(cx + h, cy); p.arc(cx, cy, h, 0, Math.PI * 2); } else p.rect(cx - h, cy - h, 2 * h, 2 * h);
+    if (set.has((x + 1) + ',' + y)) {                      // 오른쪽 이웃과 연결: 원이면 중심에서 시작/끝
+      const d1 = disk.has((x + 1) + ',' + y), x0 = cx - (d0 ? 0 : h), x1 = cx + T + (d1 ? 0 : h);
+      p.rect(x0, cy - h, x1 - x0, 2 * h);
+    }
+    if (set.has(x + ',' + (y + 1))) {                      // 아래쪽 이웃과 연결
+      const d1 = disk.has(x + ',' + (y + 1)), y0 = cy - (d0 ? 0 : h), y1 = cy + T + (d1 ? 0 : h);
+      p.rect(cx - h, y0, 2 * h, y1 - y0);
+    }
   });
   return p;
 }
@@ -639,8 +649,8 @@ function drawRoad(l) {
   ctx.save();
   ctx.setTransform(dpr * s, 0, 0, dpr * s, dpr * ox, dpr * oy);
   ctx.fillStyle = ctx.strokeStyle = ROAD_COLOR;
-  if (l.cells && l.cells.length) ctx.fill(roadPath(l.cells));
-  if (l.curves && l.curves.length) { ctx.lineWidth = ROAD_W; ctx.lineCap = 'butt'; ctx.lineJoin = 'round'; l.curves.forEach(c => ctx.stroke(curvePath(c))); }   // 같은 불투명 색이라 겹쳐도 균일
+  if (l.cells && l.cells.length) ctx.fill(roadPath(l.cells, l.curves));
+  if (l.curves && l.curves.length) { ctx.lineWidth = ROAD_W; ctx.lineCap = 'round'; ctx.lineJoin = 'round'; l.curves.forEach(c => ctx.stroke(curvePath(c))); }   // 같은 불투명 색이라 겹쳐도 균일
   ctx.restore();
 }
 // 곡선이 지나는 칸 (삭제 범위/선택 판정용): 곡선을 촘촘히 표본해서 칸 번호를 모은다
@@ -681,7 +691,7 @@ function drawDraft() {
   if (draft && draft.length && mode && mode.kind === 'curve') {            // 곡선 도로: 시작 · 조절점 · 도착, 마우스를 움직이면 곡선이 미리 보인다
     const pts = draft.length === 2 && curveHover ? [...draft, curveHover] : draft;
     if (pts.length === 3) {
-      ctx.save(); ctx.setTransform(dpr * s, 0, 0, dpr * s, dpr * ox, dpr * oy); ctx.strokeStyle = 'rgba(107,112,120,.55)'; ctx.lineWidth = ROAD_W; ctx.lineCap = 'butt';
+      ctx.save(); ctx.setTransform(dpr * s, 0, 0, dpr * s, dpr * ox, dpr * oy); ctx.strokeStyle = 'rgba(107,112,120,.55)'; ctx.lineWidth = ROAD_W; ctx.lineCap = 'round';
       ctx.stroke(curvePath(pts)); ctx.restore();
     }
     ctx.setLineDash([4, 4]); ctx.lineWidth = 1.2; ctx.strokeStyle = 'rgba(25,25,25,.55)';        // 시작-조절점-도착 안내선
@@ -981,6 +991,8 @@ function tileAt(px, py) {
 }
 const unitAtTile = (x, y, ignore) => units.find(u => u.x === x && u.y === y && u.id !== ignore);
 
+// 곡선 도로의 시작/조절/도착 지점은 항상 칸 정중앙에 놓는다
+const snapCenter = w => [(Math.floor(w[0] / TILE) + 0.5) * TILE, (Math.floor(w[1] / TILE) + 0.5) * TILE];
 const dist2 = (a, b) => (a[0] - b[0]) ** 2 + (a[1] - b[1]) ** 2;
 function pointInPoly(p, poly) {
   let inside = false;
@@ -1005,7 +1017,11 @@ function tap(e, target) {
       const f = [view.ox + draft[0][0] * view.s, view.oy + draft[0][1] * view.s];
       if ((f[0] - sx) ** 2 + (f[1] - sy) ** 2 <= SNAP_PX * SNAP_PX) { finishDraft(); return; }   // 시작 지점과 이어짐 → 완료
     }
-    if (mode.kind === 'curve' && draft.some(p => Math.hypot(p[0] - w[0], p[1] - w[1]) < TILE * 0.3)) return;   // 이미 찍은 지점과 겹치면 무시 (길이 0 곡선 방지)
+    if (mode.kind === 'curve') {
+      const c = snapCenter(w);                                                              // 누른 칸의 정중앙에 찍힌다 (기존 도로 칸이면 그 칸 중앙에서 이어짐)
+      if (draft.some(p => p[0] === c[0] && p[1] === c[1])) return;                          // 이미 찍은 칸이면 무시 (길이 0 곡선 방지)
+      w[0] = c[0]; w[1] = c[1];
+    }
     draft.push(w); lastPt = w; redoStack = []; curveHover = null;       // 구역은 이어지지 않으면 n번째 지점으로 계속, 경계선은 완료 버튼으로 끝냄
     if (mode.kind === 'curve' && draft.length === 3) { finishDraft(); return; }   // 곡선은 세 번째(도착) 지점에서 바로 완성
     render();
@@ -1292,7 +1308,9 @@ $('roadCurve').onclick = () => startDraw('curve');
 vp.addEventListener('pointermove', e => {
   if (!(mode && mode.kind === 'curve' && draft && draft.length === 2) || e.pointerType !== 'mouse' || ptrs.size) return;
   const r = vp.getBoundingClientRect();
-  curveHover = [(e.clientX - r.left - view.ox) / view.s, (e.clientY - r.top - view.oy) / view.s];
+  const w = [(e.clientX - r.left - view.ox) / view.s, (e.clientY - r.top - view.oy) / view.s];
+  if (w[0] < 0 || w[1] < 0 || w[0] > MAP || w[1] > MAP) return;
+  curveHover = snapCenter(w);
   render();
 });
 $('lineAdd').onclick = () => startDraw('line');
