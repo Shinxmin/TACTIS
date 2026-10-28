@@ -612,9 +612,9 @@ let redoStack = [];                                 // undo로 되돌린 지점 
 let lastPt = null;                                  // 마지막으로 누른 지점 (HUD 위치 기준)
 const SNAP_PX = 16;                                 // 시작 지점 근처 이 거리 안을 누르면 이어진 것으로 본다
 
-// 도로: 칸마다 중앙 정렬된 50% 폭 정사각형을 두고, 서로 이어진 칸 사이도 같은 폭으로 잇는다. 한 번에 한 색으로 채워 색이 균일하다.
+// 도로: 칸마다 중앙 정렬된 35% 폭 정사각형을 두고, 서로 이어진 칸 사이도 같은 폭으로 잇는다. 한 번에 한 색으로 채워 색이 균일하다.
 function roadPath(cells) {
-  const T = TILE, q = T * 0.25, set = new Set(cells.map(c => c[0] + ',' + c[1])), p = new Path2D();
+  const T = TILE, q = T * 0.325, set = new Set(cells.map(c => c[0] + ',' + c[1])), p = new Path2D();
   cells.forEach(([x, y]) => {
     p.rect(x * T + q, y * T + q, T - 2 * q, T - 2 * q);
     if (set.has((x + 1) + ',' + y)) p.rect(x * T + q, y * T + q, T * 2 - 2 * q, T - 2 * q);
@@ -989,7 +989,7 @@ function tap(e, target) {
   if (mode && mode.kind === 'roaddel') {              // 도로 삭제: 도로가 있는 칸에서만 반응, 없는 칸은 아무 일도 없다
     const t = tileAt(e.clientX, e.clientY);
     if (!t || !hasRoad(t.x, t.y)) return;
-    roadSel = { a: [t.x, t.y], kind: 'del', dir: [1, 0], m: 0 };
+    roadSel = { kind: 'del', rect: { x0: t.x, y0: t.y, x1: t.x, y1: t.y }, last: [t.x, t.y] };
     render();
     return;
   }
@@ -1032,7 +1032,7 @@ function finishDraft() {
 // 작성 중 마지막 지점 옆에 뜨는 HUD: 취소(X) · [완료(✓), 경계선만] · 이전(←) · 다시(→)
 function placeZoneHud() {
   const delSel = !!(mode && mode.kind === 'roaddel' && roadSel && roadSel.kind === 'del');
-  const pt = delSel ? (() => { const c = delCells().pop(); return [(c[0] + 0.5) * TILE, (c[1] + 0.5) * TILE]; })() : lastPt;       // 삭제 모드는 마지막 선택 칸 옆
+  const pt = delSel ? [(roadSel.last[0] + 0.5) * TILE, (roadSel.last[1] + 0.5) * TILE] : lastPt;       // 삭제 모드는 마지막 선택 칸 옆
   const hud = $('zoneHud'), on = delSel || !!(mode && (mode.kind === 'zone' || mode.kind === 'line') && lastPt);
   hud.classList.toggle('on', on);
   if (!on) return;
@@ -1137,20 +1137,17 @@ $('layerList').addEventListener('keydown', e => { if (e.key === 'Enter' && e.tar
 // ---------- 도로 ----------
 // 도로는 폭 1칸짜리 선이다 (칸을 가로/세로로만 이어 붙이며 더 넓은 도로는 없다).
 // 도로 칸을 누르면 그 칸의 네 모서리에만 핸들이 뜨고, 핸들을 끄는 방향(가로/세로 중 큰 쪽)으로 그 칸에서부터 칸이 늘어난다.
-// 이미 도로인 칸 쪽으로 끌면 끝에서부터 줄어든다. 삭제하기는 같은 핸들로 지울 범위를 정하고 ✓로 적용한다.
+// 이미 도로인 칸 쪽으로 끌면 끝에서부터 줄어든다. 삭제하기는 네 모서리 핸들로 (도로가 아닌 곳까지 포함한) 자유로운 사각 범위를 정하고 ✓로 적용한다.
 let roadSel = null;     // { a:[x,y] 기준 칸, kind:'add'|'del', dir:[dx,dy], m: 범위 칸 수(삭제 모드) }
 const roadLayer = () => layers.list.find(l => l.type === 'road');
 const hasRoad = (tx, ty) => { const l = roadLayer(); return !!(l && l.show && l.cells.some(c => c[0] === tx && c[1] === ty)); };
 $('roadAdd').onclick = () => { roadSel = null; setSidebar(false); closeSheet(); setMode({ kind: 'road' }); };
 $('roadDel').onclick = () => { roadSel = null; setSidebar(false); closeSheet(); setMode({ kind: 'roaddel' }); };
 
-// 삭제 모드 범위: 기준 칸에서 dir 방향으로 m칸 더
-const delCells = () => { const { a, dir, m } = roadSel, r = []; for (let k = 0; k <= m; k++) r.push([a[0] + dir[0] * k, a[1] + dir[1] * k]); return r; };
 const selBox = () => {                     // 선택 영역(칸 단위 bbox)
   if (!roadSel) return null;
   if (roadSel.kind === 'add') return { x0: roadSel.a[0], y0: roadSel.a[1], x1: roadSel.a[0], y1: roadSel.a[1] };
-  const c = delCells(), xs = c.map(v => v[0]), ys = c.map(v => v[1]);
-  return { x0: Math.min(...xs), y0: Math.min(...ys), x1: Math.max(...xs), y1: Math.max(...ys) };
+  return roadSel.rect;                                  // 삭제 범위는 도로 여부와 무관한 자유로운 사각 범위
 };
 function placeRoadHandles() {
   const box = $('roadHandles'), b = selBox();
@@ -1173,15 +1170,11 @@ function drawRoadSelection() {
   ctx.strokeRect(ox + b.x0 * tp, oy + b.y0 * tp, (b.x1 - b.x0 + 1) * tp, (b.y1 - b.y0 + 1) * tp);
   ctx.restore();
 }
-// 핸들을 잡은 지점에서 끈 거리(칸 단위)로 방향(가로/세로 중 큰 쪽)과 칸 수를 정한다. 이웃 칸으로 65% 이상 끌면 한 칸으로 친다.
+// 핸들을 잡은 지점에서 끈 거리(칸 단위)로 방향(가로/세로 중 큰 쪽)과 칸 수를 정한다 (도로 추가용). 이웃 칸으로 65% 이상 끌면 한 칸으로 친다.
 const roomFrom = (a, dir) => dir[0] ? (dir[0] > 0 ? N - 1 - a[0] : a[0]) : (dir[1] > 0 ? N - 1 - a[1] : a[1]);
 function aimFrom(e, d) {
   const tp = TILE * view.s, du = (e.clientX - d.x0) / tp, dv = (e.clientY - d.y0) / tp;
   const step = v => (v >= 0 ? 1 : -1) * Math.floor(Math.abs(v) + 0.35);
-  if (d.m0 > 0 && roadSel.kind === 'del') {                       // 이미 범위가 있으면 그 방향으로 늘리거나 줄인다
-    const sgn = du * d.dir0[0] + dv * d.dir0[1], m = d.m0 + step(sgn);
-    return { dir: d.dir0, m: Math.max(0, Math.min(roomFrom(d.a, d.dir0), m)) };
-  }
   const horiz = Math.abs(du) >= Math.abs(dv), major = horiz ? du : dv, sg = major < 0 ? -1 : 1;
   const dir = horiz ? [sg, 0] : [0, sg];
   return { dir, m: Math.max(0, Math.min(roomFrom(d.a, dir), Math.floor(Math.abs(major) + 0.35))) };
@@ -1192,14 +1185,24 @@ function aimFrom(e, d) {
   box.addEventListener('pointerdown', e => {
     const h = e.target.closest('.rh'); if (!h || !roadSel) return;
     const lay = roadLayer();
-    d = { h, pid: e.pointerId, a: roadSel.a.slice(), x0: e.clientX, y0: e.clientY, m0: roadSel.m || 0, dir0: (roadSel.dir || [1, 0]).slice(), base: lay ? lay.cells.map(c => c.slice()) : [] };
+    const tp = TILE * view.s, c = h.dataset.c, b = selBox();
+    const cx = c === 'tl' || c === 'bl' ? b.x0 : b.x1 + 1, cy = c === 'tl' || c === 'tr' ? b.y0 : b.y1 + 1;
+    d = { h, c, pid: e.pointerId, a: roadSel.a && roadSel.a.slice(), x0: e.clientX, y0: e.clientY, base: lay ? lay.cells.map(q => q.slice()) : [],
+          offX: (e.clientX - view.ox) / tp - cx, offY: (e.clientY - view.oy) / tp - cy };      // 잡은 지점과 모서리의 간격
     h.setPointerCapture(e.pointerId);
     e.stopPropagation();
   });
   box.addEventListener('pointermove', e => {
     if (!d || e.pointerId !== d.pid || !roadSel) return;
+    if (roadSel.kind === 'del') {                                    // 삭제 범위: 모서리를 놓은 격자 위치로 사각 범위를 자유롭게 늘리고 줄인다
+      const tp = TILE * view.s, rc = roadSel.rect, c = d.c, clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
+      const gx = Math.round((e.clientX - view.ox) / tp - d.offX), gy = Math.round((e.clientY - view.oy) / tp - d.offY);
+      if (c === 'tl' || c === 'bl') rc.x0 = clamp(gx, 0, rc.x1); else rc.x1 = clamp(gx - 1, rc.x0, N - 1);
+      if (c === 'tl' || c === 'tr') rc.y0 = clamp(gy, 0, rc.y1); else rc.y1 = clamp(gy - 1, rc.y0, N - 1);
+      roadSel.last = [c === 'tl' || c === 'bl' ? rc.x0 : rc.x1, c === 'tl' || c === 'tr' ? rc.y0 : rc.y1];   // 마지막으로 만진 모서리의 칸
+      render(); return;
+    }
     const { dir, m } = aimFrom(e, d);
-    if (roadSel.kind === 'del') { roadSel.dir = m ? dir : roadSel.dir; roadSel.m = m; render(); return; }
     // 도로 추가/줄이기: 기준 칸 d.a에서 dir 방향으로 m칸
     const key = c => c[0] + ',' + c[1], baseSet = new Set(d.base.map(key));
     const seq = k => [d.a[0] + dir[0] * k, d.a[1] + dir[1] * k];
@@ -1232,8 +1235,8 @@ function aimFrom(e, d) {
 // 삭제 모드 ✓: 선택한 범위의 도로 칸을 지운다
 function applyRoadDelete() {
   if (!roadSel || roadSel.kind !== 'del') return;
-  const gone = new Set(delCells().map(c => c[0] + ',' + c[1])), lay = roadLayer();
-  if (lay) { lay.cells = lay.cells.filter(c => !gone.has(c[0] + ',' + c[1])); dropIfEmpty(lay); }
+  const { x0, y0, x1, y1 } = roadSel.rect, lay = roadLayer();
+  if (lay) { lay.cells = lay.cells.filter(c => !(c[0] >= x0 && c[0] <= x1 && c[1] >= y0 && c[1] <= y1)); dropIfEmpty(lay); }
   roadSel = null; saveLayers(); renderLayerList(); setMode(null);
 }
 
