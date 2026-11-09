@@ -1,0 +1,13 @@
+{
+  "name": "gif",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Load a video from a URL, trim a section and convert it to GIF",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

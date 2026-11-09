@@ -81,9 +81,9 @@
 
   <form id="urlForm" class="row">
     <input id="urlInput" type="url" placeholder="영상 주소를 입력하세요 (예: https://example.com/video.mp4)" required>
-    <button class="primary" type="submit">불러오기</button>
+    <button class="primary" type="submit" id="loadBtn">불러오기</button>
   </form>
-  <div class="hint">mp4 · webm · mov 등 영상 파일 직접 링크를 지원합니다. 서버가 외부 접근(CORS)을 막으면 파일로 올려주세요.</div>
+  <div class="hint" id="hint">mp4 · webm · mov 등 영상 파일 직접 링크를 지원합니다. 서버가 외부 접근(CORS)을 막으면 파일로 올려주세요.</div>
   <label class="drop" id="drop">
     또는 영상 파일을 여기에 끌어다 놓거나 클릭해서 선택
     <input id="fileInput" type="file" accept="video/*" hidden>
@@ -165,6 +165,20 @@ const MAX_FRAMES = 600;
 
 let duration = 0, selStart = 0, selEnd = 0;
 let objectUrl = null, cancelled = false, busy = false, previewing = false;
+let serverMode = false, clipName = '';
+
+// When the page is served by server.js, videos are downloaded by the server
+// (YouTube and other sites included) and played same-origin, so CORS never blocks.
+fetch('api/health', { cache: 'no-store' })
+  .then(r => r.ok ? r.json() : null)
+  .then(j => {
+    if (!j || !j.ok) return;
+    serverMode = true;
+    $('urlInput').placeholder = '영상 주소를 입력하세요 (유튜브 등 영상 페이지 또는 영상 파일 링크)';
+    $('hint').textContent = '유튜브 · 비메오 · X · 인스타그램 등 대부분의 영상 페이지 주소와 mp4 등 영상 파일 링크를 지원합니다.';
+  })
+  .catch(() => {});
+const safeName = (t) => (t || 'clip').replace(/[\\/:*?"<>|]+/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 80) || 'clip';
 
 const fmt = (t) => {
   t = Math.max(0, t || 0);
@@ -178,16 +192,34 @@ function loadSource(src, isFile) {
   msg($('loadMsg'), '불러오는 중…');
   $('result').classList.add('hidden');
   if (objectUrl && !isFile) { URL.revokeObjectURL(objectUrl); objectUrl = null; }
-  if (isFile) video.removeAttribute('crossorigin');
+  if (isFile || src.startsWith('api/')) video.removeAttribute('crossorigin');
   else video.crossOrigin = 'anonymous';
   video.src = src;
   video.load();
 }
 
-$('urlForm').addEventListener('submit', (e) => {
+$('urlForm').addEventListener('submit', async (e) => {
   e.preventDefault();
   const url = $('urlInput').value.trim();
-  if (!url) return;
+  if (!url || busy) return;
+  if (serverMode) {
+    const btn = $('loadBtn');
+    btn.disabled = true;
+    msg($('loadMsg'), '서버에서 영상을 받는 중… (영상 길이에 따라 수십 초 걸릴 수 있습니다)');
+    try {
+      const r = await fetch('api/fetch', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ url }) });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(j.error || `서버 오류 (${r.status})`);
+      clipName = safeName(j.title);
+      loadSource(j.src.replace(/^\//, ''), false);
+    } catch (err) {
+      msg($('loadMsg'), '영상을 받지 못했습니다: ' + err.message, true);
+    } finally {
+      btn.disabled = false;
+    }
+    return;
+  }
+  clipName = '';
   if (/youtube\.com|youtu\.be|instagram\.com|tiktok\.com|vimeo\.com/i.test(url)) {
     msg($('loadMsg'), '스트리밍 사이트 페이지 주소는 직접 불러올 수 없습니다. 영상 파일(.mp4 등) 직접 링크를 넣거나 파일을 올려주세요.', true);
     return;
@@ -199,7 +231,7 @@ function useFile(file) {
   if (!file || !file.type.startsWith('video/')) { msg($('loadMsg'), '영상 파일을 선택해주세요.', true); return; }
   if (objectUrl) URL.revokeObjectURL(objectUrl);
   objectUrl = URL.createObjectURL(file);
-  $('dlLink').download = file.name.replace(/\.[^.]+$/, '') + '.gif';
+  clipName = safeName(file.name.replace(/\.[^.]+$/, ''));
   loadSource(objectUrl, true);
 }
 $('fileInput').addEventListener('change', (e) => useFile(e.target.files[0]));
@@ -216,13 +248,17 @@ video.addEventListener('loadedmetadata', () => {
   $('durLabel').textContent = fmt(duration);
   $('editor').classList.remove('hidden');
   msg($('loadMsg'), `불러오기 완료 · ${video.videoWidth}×${video.videoHeight} · ${fmt(duration)}`);
-  if (!video.src.startsWith('blob:')) {
-    try { $('dlLink').download = (new URL(video.src).pathname.split('/').pop() || 'clip').replace(/\.[^.]+$/, '') + '.gif'; } catch {}
+  let name = clipName;
+  if (!name) {
+    try { name = safeName(decodeURIComponent(new URL(video.src).pathname.split('/').pop()).replace(/\.[^.]+$/, '')); } catch { name = 'clip'; }
   }
+  $('dlLink').download = name + '.gif';
   render();
 });
 video.addEventListener('error', () => {
-  if (video.crossOrigin && video.src && !video.src.startsWith('blob:')) {
+  if (video.src.includes('/api/file/')) {
+    msg($('loadMsg'), '받은 영상을 브라우저에서 재생할 수 없습니다. 다른 주소로 시도해주세요.', true);
+  } else if (video.crossOrigin && video.src && !video.src.startsWith('blob:')) {
     msg($('loadMsg'), '영상을 불러오지 못했습니다. 주소가 영상 파일 직접 링크인지 확인하세요. 해당 서버가 외부 접근(CORS)을 허용하지 않으면 파일을 내려받아 위에 올려주세요.', true);
   } else {
     msg($('loadMsg'), '이 영상 형식은 브라우저에서 재생할 수 없습니다.', true);
