@@ -2,1789 +2,381 @@
 <html lang="ko">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
-<meta name="theme-color" content="#ffffff">
-<meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="default">
-<title>TACTIS</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>GIF</title>
 <style>
   :root {
     --bg: #ffffff;
-    --panel: #ffffff;
-    --ink: #14181d;
-    --muted: #6b7480;
-    --line: #e1e4e8;
-    --accent: #2d6cdf;
-    --danger: #c9372c;
+    --fg: #111111;
+    --muted: #6b6b6b;
+    --line: #e4e4e4;
+    --soft: #f5f5f5;
+    --accent: #2563eb;
+    --sel: rgba(37, 99, 235, 0.18);
+    --danger: #dc2626;
   }
-  * { box-sizing: border-box; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; -webkit-tap-highlight-color: transparent; }
-  * { scrollbar-width: none; -ms-overflow-style: none; }
-  *::-webkit-scrollbar { display: none; width: 0; height: 0; }
-  html { background: #fff; }
-  html, body { margin: 0; height: 100%; overflow: hidden; background: #fff; color: var(--ink);
-    font-family: -apple-system, "Apple SD Gothic Neo", "Noto Sans KR", "Malgun Gothic", system-ui, sans-serif; }
-  #viewport { position: fixed; inset: 0; touch-action: none; overflow: hidden; cursor: grab; }
-  #viewport.dragging { cursor: grabbing; }
-  #grid { position: absolute; inset: 0; width: 100%; height: 100%; }
-  #units { position: absolute; left: 0; top: 0; }
-
-  .unit { position: absolute; left: 0; top: 0; cursor: pointer; }
-  .bld { position: absolute; left: 15%; top: 15%; width: 70%; height: 70%; background: #000; }
-  .unit.lift { z-index: 5; }
-  .unit.lift .bld { opacity: .75; box-shadow: 0 4px 12px rgba(0,0,0,.35); }
-  .unit.lift.bad .bld { background: #b3261e; }
-  .unit.sel .bld { outline: 2px solid #3f434a; outline-offset: 2px; }
-  .hud { position: absolute; left: 50%; bottom: 85%; margin-bottom: 9px; transform: translateX(-50%);
-    display: flex; align-items: center; gap: 6px; white-space: nowrap; height: 20px;
-    font-size: 12px; line-height: 1; color: #000;
-    text-shadow: 0 0 3px #fff, 0 0 3px #fff, 0 0 2px #fff; }
-  .hud svg { display: block; height: 20px; width: auto; flex: none; }
-  .hud .nm { font-weight: 600; }
-  /* 타일 30px 미만: 간소화 (단대호만) */
-  #viewport.compact .hud { height: 16px; }
-  #viewport.compact .hud .nm { display: none; }
-  #viewport.compact .hud svg { height: 16px; }
-
-  #bar { position: fixed; top: 0; left: 0; right: 0; display: flex; align-items: center; gap: 8px;
-    padding: 8px 12px; padding-top: max(8px, env(safe-area-inset-top)); pointer-events: none; }
-  #bar > * { pointer-events: auto; }
-  #bar h1 { margin: 0 auto 0 6px; font-size: 15px; letter-spacing: .14em; color: #14181d; }
-  #bar .scale { color: #6b7480; font-size: 11px; }
-  .btn { border: 1px solid var(--line); background: var(--panel); color: var(--ink); border-radius: 8px;
-    padding: 8px 12px; font: inherit; font-size: 14px; cursor: pointer; }
-  .btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
-  .btn.danger { color: var(--danger); }
-  .btn.sm { padding: 4px 8px; font-size: 12px; }
-
-  .btn.round { width: 38px; height: 38px; padding: 0; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; }
-  .btn.round svg { width: 18px; height: 18px; display: block; }
-
-  #scrim { position: fixed; inset: 0; z-index: 29; display: none; }
-  #scrim.on { display: block; }
-  #sidebar { position: fixed; left: 0; top: 0; bottom: 0; width: 40%; min-width: 0; max-width: 40%; overflow-x: hidden; z-index: 30; background: rgba(255,255,255,.96);
-    border-right: 1px solid rgba(0,0,0,.12); box-shadow: 4px 0 18px rgba(0,0,0,.1); font-size: 12px;
-    padding: 14px 12px; padding-top: max(14px, env(safe-area-inset-top)); overflow-y: auto;
-    transform: translateX(-102%); transition: transform .22s ease; }
-  #sidebar.open { transform: none; }
-  #sidebar h2 { margin: 4px 0 14px; font-size: 14px; }
-  #sidebar .lbl { color: var(--muted); margin-bottom: 6px; }
-  #sidebar .ratio { display: flex; justify-content: space-between; gap: 4px; font-weight: 600; font-variant-numeric: tabular-nums; }
-  #sidebar input[type=range] { width: 100%; margin: 8px 0 12px; accent-color: #6aa84f; -webkit-user-select: auto; user-select: auto; }
-  #sidebar .btn { width: 100%; font-size: 12px; padding: 8px 0; }
-  #sidebar .chk { display: flex; align-items: flex-start; gap: 6px; font-weight: 600; line-height: 1.3; margin-bottom: 10px; cursor: pointer; }
-  #sidebar .chk input { flex: none; }
-  #sidebar section + section { margin-top: 22px; padding-top: 16px; border-top: 1px solid var(--line); }
-  #roadHandles { position: fixed; inset: 0; z-index: 7; pointer-events: none; display: none; }
-  #roadHandles.on { display: block; }
-  .rh { position: fixed; width: 26px; height: 26px; margin: -13px 0 0 -13px; pointer-events: auto; touch-action: none; cursor: nwse-resize; }
-  .rh::after { content: ''; position: absolute; left: 50%; top: 50%; width: 9px; height: 9px; margin: -4.5px 0 0 -4.5px; border-radius: 2.5px; background: #fff; border: 2px solid var(--hc, #2d6cdf); box-shadow: 0 1px 4px rgba(0,0,0,.3); }
-  .rh[data-c=tr], .rh[data-c=bl] { cursor: nesw-resize; }
-  #roadHandles.del { --hc: #5fa0f5; }
-  #roadHandles.naming .rh { pointer-events: none; }
-  #zoneHud { position: fixed; z-index: 8; display: none; gap: 6px; pointer-events: none; align-items: flex-start; }
-  .zpal { pointer-events: auto; width: 30px; height: 30px; border-radius: 15px; overflow: hidden; background: #fff; border: 1px solid rgba(0,0,0,.28);
-    box-shadow: 0 2px 6px rgba(0,0,0,.18); transition: height .26s cubic-bezier(.2,.85,.25,1); }
-  .zpal.open { height: 120px; }
-  .zpal .zpb { display: flex; align-items: center; justify-content: center; width: 28px; height: 28px; padding: 0; border: 0; background: none; color: var(--ink); cursor: pointer; }
-  .zpal .zpb svg { width: 15px; height: 15px; }
-  .zpal .pc { display: block; width: 20px; height: 20px; margin: 4px auto 5px; border-radius: 50%; border: 1px solid rgba(0,0,0,.25); cursor: pointer; opacity: 0; transform: scale(.6); transition: opacity .2s ease .08s, transform .2s ease .08s; }
-  .zpal.open .pc { opacity: 1; transform: none; }
-  #zoneHud .zb.on { background: var(--ink); color: #fff; border-color: var(--ink); }
-  #roadNameBox { position: fixed; z-index: 9; display: none; background: #fff; border-radius: 10px; padding: 5px; box-shadow: 0 4px 16px rgba(0,0,0,.25); border: 1px solid rgba(0,0,0,.12); }
-  #roadNameBox.on { display: block; }
-  #roadNameBox input { display: block; width: 168px; border: 0; outline: none; background: transparent; font: inherit; font-size: 16px; padding: 4px 6px; color: var(--ink); -webkit-user-select: text; user-select: text; }
-  #zoneHud.on { display: flex; }
-  #zoneHud .zb { pointer-events: auto; width: 30px; height: 30px; border-radius: 50%; padding: 0; display: inline-flex; align-items: center; justify-content: center;
-    background: #fff; color: var(--ink); border: 1px solid rgba(0,0,0,.28); box-shadow: 0 2px 6px rgba(0,0,0,.18); cursor: pointer; }
-  #zoneHud .zb svg { width: 14px; height: 14px; display: block; }
-  #zoneHud .zb:disabled { opacity: .35; cursor: default; }
-  #zDone .ic-x { display: none; }
-  #zDone.asx .ic-check { display: none; }
-  #zDone.asx .ic-x { display: block; }
-  .btn.round.active { background: var(--ink); border-color: var(--ink); color: #fff; }
-  #sidebar h2.big { font-size: 17px; margin-bottom: 12px; }
-  #layerList { position: relative; }
-  .lrow { display: flex; align-items: center; gap: 6px; min-height: 38px; padding: 4px 8px 4px 4px; margin-bottom: 6px; border: 1px solid var(--line);
-    border-radius: 8px; background: #fff; transition: transform .16s ease; }
-  .lrow.drag { z-index: 2; transition: none; box-shadow: 0 4px 14px rgba(0,0,0,.18); background: #fafafa; }
-  .lrow .grip { width: 24px; height: 30px; flex: none; display: inline-flex; align-items: center; justify-content: center; color: var(--muted); cursor: grab; touch-action: none; }
-  .lrow .grip svg { width: 14px; height: 14px; display: block; }
-  .lrow .ltext { flex: 1; min-width: 0; line-height: 1.3; overflow-wrap: break-word; }
-  .lrow .ltype { font-weight: 700; font-size: 13px; white-space: nowrap; }
-  .lrow .cname { font-size: 11px; font-weight: 500; color: var(--ink); outline: none; }
-  .lrow .cname:empty::before { content: attr(data-ph); color: var(--muted); opacity: .75; }
-  #sidebar .lrow .ldel { width: auto; flex: none; height: 25px; padding: 0 9px; font-size: 11px; line-height: 1; border-radius: 7px; background: #000; border-color: #000; color: #fff; }
-  #sidebar .lrow .ldel:disabled { opacity: .3; }
-  #sidebar input[type=checkbox] { -webkit-appearance: none; appearance: none; position: relative; width: 16px; height: 16px; margin: 0; flex: none; border: 1.5px solid #14181d;
-    border-radius: 4px; background: #fff; cursor: pointer; -webkit-user-select: auto; user-select: auto; }
-  #sidebar input[type=checkbox]:checked { background: #14181d; }
-  #sidebar input[type=checkbox]:checked::after { content: ''; position: absolute; left: 4px; top: 0.5px; width: 4px; height: 8px; border: solid #fff; border-width: 0 1.8px 1.8px 0; transform: rotate(45deg); }
-  #sidebar input[type=checkbox]:disabled { cursor: default; }
-  .lrow.fixed .grip, .lrow.fixed input { opacity: .4; }
-  /* 사이드바가 좁으면(폰) 이름 줄 아래로 삭제 · 체크박스를 오른쪽 정렬로 내린다 */
-  #sidebar { container-type: inline-size; }
-  @container (max-width: 230px) {
-    .lrow { flex-wrap: wrap; row-gap: 4px; }
-    .lrow .ltext { flex: 1 1 calc(100% - 34px); }
-    #sidebar .lrow .ldel { margin-left: auto; }
-    .lrow .ltext + input { margin-left: auto; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: var(--bg); color: var(--fg); }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Apple SD Gothic Neo", "Noto Sans KR", sans-serif;
+    font-size: 15px; line-height: 1.5;
   }
-  .lrow.fixed .grip { cursor: default; }
-  #sidebar .duo { display: flex; gap: 6px; }
-  #sidebar .duo .btn { flex: 1 1 0; min-width: 0; padding: 8px 0; white-space: nowrap; }
-  #sidebar .seg { display: flex; flex-wrap: wrap; gap: 6px; }
-  #sidebar .seg .btn { flex: 1 1 0; min-width: 0; width: auto; padding: 8px 2px; white-space: nowrap; }
-  #sidebar .seg .btn.on { background: var(--ink); border-color: var(--ink); color: #fff; }
+  main { max-width: 880px; margin: 0 auto; padding: 32px 16px 64px; }
+  h1 { font-size: 44px; font-weight: 800; letter-spacing: -0.02em; margin: 0 0 24px; }
+  .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  input[type=url], input[type=number], select {
+    font: inherit; padding: 10px 12px; border: 1px solid var(--line); border-radius: 8px;
+    background: #fff; color: var(--fg); min-width: 0;
+  }
+  input[type=url] { flex: 1 1 320px; }
+  input[type=number] { width: 96px; }
+  button {
+    font: inherit; padding: 10px 16px; border-radius: 8px; border: 1px solid var(--line);
+    background: #fff; color: var(--fg); cursor: pointer; white-space: nowrap;
+  }
+  button:hover:not(:disabled) { background: var(--soft); }
+  button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  button.primary:hover:not(:disabled) { filter: brightness(1.08); background: var(--accent); }
+  button:disabled { opacity: .45; cursor: default; }
+  .hint { color: var(--muted); font-size: 13px; margin-top: 8px; }
+  .msg { margin-top: 12px; font-size: 14px; }
+  .msg.err { color: var(--danger); }
+  .drop { display: block;
+    margin-top: 12px; border: 1.5px dashed var(--line); border-radius: 10px; padding: 14px;
+    text-align: center; color: var(--muted); font-size: 14px; cursor: pointer;
+  }
+  .drop.over { border-color: var(--accent); color: var(--accent); background: var(--sel); }
+  section.card { margin-top: 28px; border: 1px solid var(--line); border-radius: 12px; padding: 16px; }
+  section.card h2 { font-size: 16px; margin: 0 0 12px; }
+  .hidden { display: none !important; }
+  video { width: 100%; max-height: 60vh; background: #000; border-radius: 8px; display: block; }
 
-  #confirmWrap { position: fixed; inset: 0; z-index: 40; background: rgba(0,0,0,.35); display: none; align-items: center; justify-content: center; padding: 16px; }
-  #confirmWrap.on { display: flex; }
-  #confirm { background: #fff; border-radius: 14px; padding: 18px 18px 14px; width: 100%; max-width: 320px; box-shadow: 0 8px 30px rgba(0,0,0,.2); }
-  #confirm h3 { margin: 0 0 8px; font-size: 15px; }
-  #confirm p { margin: 0; font-size: 12px; color: var(--muted); line-height: 1.5; }
-  #confirm .btns { display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px; }
-  #confirm .btn { font-size: 12px; padding: 7px 16px; }
+  /* timeline */
+  .timeline { position: relative; height: 44px; margin: 16px 0 6px; user-select: none; touch-action: none; }
+  .track { position: absolute; left: 0; right: 0; top: 16px; height: 12px; background: var(--soft); border: 1px solid var(--line); border-radius: 6px; }
+  .range { position: absolute; top: 16px; height: 12px; background: var(--sel); border-top: 1px solid var(--accent); border-bottom: 1px solid var(--accent); }
+  .handle {
+    position: absolute; top: 6px; width: 14px; height: 32px; margin-left: -7px; border-radius: 4px;
+    background: var(--accent); cursor: ew-resize;
+  }
+  .playhead { position: absolute; top: 2px; width: 2px; height: 40px; margin-left: -1px; background: var(--fg); pointer-events: none; }
+  .times { display: flex; justify-content: space-between; color: var(--muted); font-size: 13px; font-variant-numeric: tabular-nums; }
 
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin-top: 14px; }
+  .field label { display: block; font-size: 12px; color: var(--muted); margin-bottom: 4px; }
+  .field input, .field select { width: 100%; }
+  .pair { display: flex; gap: 6px; }
+  .pair input { flex: 1; }
+  .pair button { padding: 10px; }
 
-  #sheet { --ink: #14181d; --muted: #6b7480; --line: rgba(0,0,0,.1); --symh: 22px;
-    position: fixed; left: 0; right: 0; bottom: 0; max-height: 50vh; max-height: 50dvh; display: flex; flex-direction: column;
-    color: var(--ink); background: rgba(255,255,255,.9); border-radius: 0;
-    border-top: 1px solid rgba(0,0,0,.14); box-shadow: 0 -4px 18px rgba(0,0,0,.12);
-    transform: translateY(105%); transition: transform .24s ease; z-index: 10;
-    max-width: 640px; margin: 0 auto; }
-  #sheet.open { transform: translateY(var(--off, 0px)); }
-  #sheet.dragging { transition: none; }
-  #sheet .btn { background: rgba(0,0,0,.05); border-color: rgba(0,0,0,.14); color: var(--ink); }
-  #sheet .btn.primary { background: var(--accent); border-color: transparent; color: #fff; }
-  #sheet .grab { position: relative; width: 100%; height: 20px; flex: none; cursor: grab; touch-action: none; }
-  #sheet .grab::before { content: ''; position: absolute; left: 50%; top: 8px; width: 40px; height: 4px; margin-left: -20px; border-radius: 2px; background: rgba(0,0,0,.22); }
-  #sheet.dragging .grab { cursor: grabbing; }
-  #sheet header { padding: 8px 18px 12px; border-bottom: 1px solid var(--line); flex: none; }
-  .title { position: relative; display: flex; align-items: center; gap: 8px; font-size: 18px; font-weight: 700; line-height: 30px; }
-  .title .symwrap { display: inline-flex; align-items: center; flex: none; padding-bottom: 1px; }
-  .title svg { height: var(--symh); width: auto; display: block; }
-  .title .tacts { margin-left: auto; display: flex; gap: 6px; flex: none; }
-  .title .nm-edit { min-width: 0; line-height: 1.25; overflow-wrap: anywhere; word-break: keep-all; }
-  #sheet .btn.sm { flex: none; white-space: nowrap; }
-  .total { color: var(--muted); font-size: 12px; margin-top: 2px; font-variant-numeric: tabular-nums; }
-  .editing .nm-edit, .editing .symwrap { background: rgba(0,0,0,.07); border-radius: 8px; padding: 2px 8px; cursor: text; }
-  .editing .symwrap { cursor: pointer; padding: 2px 8px 2px; }
-  [contenteditable] { -webkit-user-select: text; user-select: text; outline: none; min-width: 1ch; }
-  #sheet .btn.sm { height: 25px; padding: 0 12px; font-size: 11px; line-height: 1; border-radius: 7px; background: #000; border-color: #000; color: #fff; display: inline-flex; align-items: center; }
-  .picker { position: absolute; top: -6px; height: calc(var(--symh) * 4); z-index: 3; padding: 6px 8px;
-    background: rgba(255,255,255,.97); border: 1px solid rgba(0,0,0,.14); border-radius: 12px;
-    box-shadow: 0 4px 16px rgba(0,0,0,.18); display: flex; flex-direction: column; gap: 6px; font-size: 10px; font-weight: 500; line-height: 1; }
-  .picker .types, .picker .echs { display: flex; gap: 4px; overflow-x: auto; scrollbar-width: none; flex: none; }
-  .picker .types::-webkit-scrollbar, .picker .echs::-webkit-scrollbar { display: none; }
-  .picker .types button { flex: none; width: 54px; padding: 5px 0 4px; border: 0; border-radius: 8px; background: none;
-    color: var(--ink); font: inherit; display: flex; flex-direction: column; align-items: center; gap: 5px; cursor: pointer; }
-  .picker .types button.on, .picker .echs button.on { background: rgba(0,0,0,.1); }
-  .picker .echs button { flex: none; min-width: 36px; padding: 6px 8px; border: 1px solid rgba(0,0,0,.14); border-radius: 12px;
-    background: none; color: var(--ink); font: inherit; font-size: 11px; cursor: pointer; }
-  .bodywrap { position: relative; flex: 1 1 auto; min-height: 96px; display: flex; flex-direction: column; }
-  .more { position: absolute; left: 50%; bottom: 6px; transform: translateX(-50%); width: 28px; height: 28px; border-radius: 50%;
-    border: 1px solid rgba(0,0,0,.15); background: rgba(255,255,255,.95); box-shadow: 0 2px 8px rgba(0,0,0,.18); color: var(--ink);
-    display: none; align-items: center; justify-content: center; padding: 0; cursor: pointer; z-index: 2; }
-  .more.on { display: flex; }
-  .more svg { width: 16px; height: 16px; }
-  #sheet .body { overflow-y: auto; padding: 8px 18px; flex: 1; min-height: 0; font-size: 12px;
-    scroll-snap-type: y mandatory; scroll-padding: 8px 0; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; }
-  .block { border: 1px solid rgba(0,0,0,.12); background: rgba(255,255,255,.55); border-radius: 14px; padding: 10px 12px; margin: 8px 0; }
-  .block { width: 66.667%; scroll-snap-align: start; display: flex; flex-direction: column; min-height: 69px; }   /* 장비 있는 블럭 높이에 통일 */
-  .block > .mini { margin-top: auto; }
-  .editing .block { min-height: 97px; }
-  .block.none { align-items: center; justify-content: center; color: var(--muted); text-align: center; }
-
-  .block .row { display: flex; align-items: center; gap: 8px; min-height: 30px; }
-  .block .row b { font-weight: 600; }
-  .block .cnt { color: var(--muted); font-variant-numeric: tabular-nums; }
-  .block .acts { margin-left: auto; display: flex; gap: 6px; }
-  .block .eq { color: var(--muted); margin-top: 0; }
-  .block .row.v { min-height: 18px; }
-  .block input { font: inherit; color: var(--ink); background: rgba(0,0,0,.06); border: 0; border-radius: 8px; padding: 6px 8px;
-    -webkit-user-select: text; user-select: text; min-width: 0; outline: none; }
-  .block input::placeholder { color: var(--muted); opacity: .8; }
-  .block .row input[data-f=name] { flex: 1; }
-  .block .nums { flex: none; display: inline-flex; align-items: center; background: rgba(0,0,0,.06); border-radius: 8px; }
-  .block .nums input { background: none; }
-  .block .row input.n { width: 39px; padding-left: 2px; padding-right: 2px; text-align: center; }
-  .block .eqin { width: 100%; margin-top: 6px; }
-  .block .mini { height: 4px; background: rgba(0,0,0,.1); border-radius: 2px; margin-top: 8px; overflow: hidden; }
-  .block .mini i { display: block; height: 100%; }
-  .empty { color: var(--muted); text-align: left; padding: 14px 0; }
+  progress { width: 100%; height: 8px; margin-top: 12px; accent-color: var(--accent); }
+  #result img { max-width: 100%; border: 1px solid var(--line); border-radius: 8px; display: block; margin: 0 auto; }
+  .meta { color: var(--muted); font-size: 13px; margin: 10px 0; text-align: center; }
+  #frameCanvas { display: none; }
 </style>
 </head>
 <body>
-<div id="viewport">
-  <canvas id="grid"></canvas>
-  <div id="units"></div>
-</div>
+<main>
+  <h1>GIF</h1>
 
-<div id="bar">
-  <button class="btn round" id="menu" aria-label="메뉴"><svg viewBox="0 0 18 18" fill="currentColor"><circle cx="4" cy="9" r="1.6"/><circle cx="9" cy="9" r="1.6"/><circle cx="14" cy="9" r="1.6"/></svg></button>
-  <h1>TACTIS</h1>
-  <button class="btn round" id="fit" aria-label="맞춤"><svg viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="9" cy="9" r="5"/><circle cx="9" cy="9" r="1.6" fill="currentColor" stroke="none"/><path d="M9 1.5v2.5M9 14v2.5M1.5 9h2.5M14 9h2.5"/></svg></button>
-  <button class="btn round" id="add" aria-label="부대 추가"><svg viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M9 3.5v11M3.5 9h11"/></svg></button>
-</div>
-<div id="scrim"></div>
-<aside id="sidebar" aria-hidden="true">
-  <section>
-    <h2>맵 크기</h2>
-    <div class="seg" id="mapSizes">
-      <button class="btn" data-n="20">20×20</button><button class="btn" data-n="40">40×40</button><button class="btn" data-n="60">60×60</button>
+  <form id="urlForm" class="row">
+    <input id="urlInput" type="url" placeholder="영상 주소를 입력하세요 (예: https://example.com/video.mp4)" required>
+    <button class="primary" type="submit">불러오기</button>
+  </form>
+  <div class="hint">mp4 · webm · mov 등 영상 파일 직접 링크를 지원합니다. 서버가 외부 접근(CORS)을 막으면 파일로 올려주세요.</div>
+  <label class="drop" id="drop">
+    또는 영상 파일을 여기에 끌어다 놓거나 클릭해서 선택
+    <input id="fileInput" type="file" accept="video/*" hidden>
+  </label>
+  <div id="loadMsg" class="msg"></div>
+
+  <section id="editor" class="card hidden">
+    <h2>에디터</h2>
+    <video id="video" playsinline preload="auto" controls></video>
+
+    <div class="timeline" id="timeline">
+      <div class="track"></div>
+      <div class="range" id="rangeBar"></div>
+      <div class="playhead" id="playhead"></div>
+      <div class="handle" id="hStart" title="시작"></div>
+      <div class="handle" id="hEnd" title="끝"></div>
+    </div>
+    <div class="times"><span>0:00.0</span><span id="selInfo"></span><span id="durLabel">0:00.0</span></div>
+
+    <div class="grid">
+      <div class="field">
+        <label>시작 (초)</label>
+        <div class="pair"><input id="startIn" type="number" step="0.1" min="0"><button id="setStart" type="button" title="현재 위치를 시작으로">⇤</button></div>
+      </div>
+      <div class="field">
+        <label>끝 (초)</label>
+        <div class="pair"><input id="endIn" type="number" step="0.1" min="0"><button id="setEnd" type="button" title="현재 위치를 끝으로">⇥</button></div>
+      </div>
+      <div class="field">
+        <label>길이 (초)</label>
+        <input id="lenIn" type="number" step="0.1" min="0.1">
+      </div>
+      <div class="field">
+        <label>FPS</label>
+        <select id="fpsIn">
+          <option>5</option><option>8</option><option selected>10</option><option>12</option><option>15</option><option>20</option><option>25</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>가로 크기 (px)</label>
+        <select id="widthIn">
+          <option>240</option><option>320</option><option selected>480</option><option>640</option><option>800</option><option value="0">원본</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>반복</label>
+        <select id="loopIn"><option value="0" selected>무한 반복</option><option value="-1">한 번만</option></select>
+      </div>
+    </div>
+
+    <div class="row" style="margin-top:16px">
+      <button id="previewBtn" type="button">구간 미리보기</button>
+      <button id="makeBtn" class="primary" type="button">GIF 만들기</button>
+      <button id="cancelBtn" type="button" class="hidden">취소</button>
+    </div>
+    <progress id="progress" class="hidden" value="0" max="1"></progress>
+    <div id="makeMsg" class="msg"></div>
+  </section>
+
+  <section id="result" class="card hidden">
+    <h2>결과</h2>
+    <img id="gifImg" alt="생성된 GIF">
+    <div class="meta" id="gifMeta"></div>
+    <div class="row" style="justify-content:center">
+      <a id="dlLink" download="clip.gif"><button class="primary" type="button">GIF 다운로드</button></a>
     </div>
   </section>
-  <section>
-    <h2>지형 생성</h2>
-    <div class="lbl">평지 : 산지</div>
-    <div class="ratio"><span id="rPlain">70</span><span>:</span><span id="rMtn">30</span></div>
-    <input type="range" id="mtnRatio" min="0" max="95" step="5" value="30" aria-label="산지 비중">
-    <label class="chk"><input type="checkbox" id="highMtn">더 높은 산지 지형 구현</label>
-    <button class="btn primary" id="applyTerrain">적용</button>
-  </section>
-  <section>
-    <h2 class="big">레이어</h2>
-    <div id="layerList"></div>
-  </section>
-  <section>
-    <h2>구역</h2>
-    <button class="btn primary" id="zoneAdd">추가하기</button>
-  </section>
-  <section>
-    <h2>경계선</h2>
-    <button class="btn primary" id="lineAdd">추가하기</button>
-  </section>
-  <section>
-    <h2>도로</h2>
-    <button class="btn primary" id="roadAdd">추가하기</button>
-    <button class="btn primary" id="roadCurve" style="margin-top:6px">곡선 추가하기</button>
-  </section>
-</aside>
-<div id="confirmWrap"><div id="confirm" role="dialog" aria-modal="true">
-  <h3>경고</h3>
-  <p id="cfText">필드 크기를 수정하면 모든 데이터가 초기화됩니다</p>
-  <div class="btns"><button class="btn" id="cfCancel">취소</button><button class="btn" id="cfOk">확인</button></div>
-</div></div>
-<div id="roadHandles" aria-hidden="true"><i class="rh" data-c="tl"></i><i class="rh" data-c="tr"></i><i class="rh" data-c="bl"></i><i class="rh" data-c="br"></i></div>
-<div id="zoneHud" aria-hidden="true">
-  <button class="zb" id="zCancel" aria-label="취소"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4 4l8 8M12 4l-8 8"/></svg></button>
-  <button class="zb" id="zDone" aria-label="완료"><svg class="ic-check" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8.5l3.2 3.2L13 4.8"/></svg><svg class="ic-x" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9.6 2.8l3.6 3.6a1 1 0 010 1.4L8 13H5.4L2.8 10.4a1 1 0 010-1.4l5.4-5.4a1 1 0 011.4-.8z"/><path d="M5.9 6.3l4.3 4.3M8 13h6"/></svg></button>
-  <button class="zb" id="zUndo" aria-label="이전으로"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M13 8H3M7 4L3 8l4 4"/></svg></button>
-  <button class="zb" id="zRedo" aria-label="다시 앞으로"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8h10M9 4l4 4-4 4"/></svg></button>
-  <div class="zpal" id="zPalWrap">
-    <button class="zpb" id="zPal" aria-label="도로 색상"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2.2C4.6 2.2 2.2 4.6 2.2 7.6c0 3 2.4 5.6 5.4 5.6.9 0 1.3-.6 1-1.3-.3-.7.1-1.5.9-1.5h1.4c1.4 0 2.8-.9 2.8-2.6C13.7 4.4 11.3 2.2 8 2.2z"/><circle cx="5" cy="7.4" r=".8" fill="currentColor" stroke="none"/><circle cx="7.4" cy="5" r=".8" fill="currentColor" stroke="none"/><circle cx="10.2" cy="5.6" r=".8" fill="currentColor" stroke="none"/></svg></button>
-    <i class="pc" data-col="0" style="background:#cfd2d8"></i><i class="pc" data-col="1" style="background:#6b7078"></i><i class="pc" data-col="2" style="background:#f5a524"></i>
-  </div>
-  <button class="zb" id="zPen" aria-label="도로명"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M2.6 13.4l.7-3 7.6-7.7a1.4 1.4 0 012 2l-7.6 7.7z"/></svg></button>
-  <button class="zb" id="zPlus" aria-label="범위에 도로 만들기"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M8 3v10M3 8h10"/></svg></button>
-</div>
-<div id="roadNameBox"><input id="roadNameInput" maxlength="14" placeholder="도로명을 지정하세요" enterkeyhint="done" autocomplete="off"></div>
 
-<div id="sheet" aria-hidden="true">
-  <div class="grab"></div>
-  <header id="sheetHead"></header>
-  <div class="bodywrap"><div class="body" id="sheetBody"></div>
-    <button class="more" id="more" aria-label="아래로 더 보기"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 6l4.5 4.5L12.5 6"/></svg></button></div>
-</div>
+  <canvas id="frameCanvas"></canvas>
+</main>
 
+<script type="module">
+import { GIFEncoder, quantize, applyPalette } from 'https://cdn.jsdelivr.net/npm/gifenc@1.0.3/+esm';
 
-<script>
-(() => {
-'use strict';
+const $ = (id) => document.getElementById(id);
+const video = $('video');
+const MAX_CLIP = 30;          // seconds
+const MAX_FRAMES = 600;
 
-const TILE = 100;          // 타일 한 칸 = 100m
-const MKEY = 'tactis.map';
-const MAP_SIZES = [20, 40, 60];
-let N = 20;                // 한 변 타일 수 (기본 20x20 = 4km²)
-try { const n = JSON.parse(localStorage.getItem(MKEY)); if (MAP_SIZES.includes(n)) N = n; } catch (e) {}
-let MAP = TILE * N;
-const BLD = 0.7;           // 건물은 타일의 70%
-const COMPACT_TILE_PX = 20; // 타일이 이 크기보다 작으면 간소화(단대호만)
-const KEY = 'tactis.v1';
+let duration = 0, selStart = 0, selEnd = 0;
+let objectUrl = null, cancelled = false, busy = false, previewing = false;
 
-const TYPES = { inf: '보병', mech: '기계화보병', armor: '기갑', arty: '포병', recon: '정찰', log: '군수', ad: '방공', eng: '공병', med: '의무', hq: '본부' };
-const ECHELONS = { '': '없음', I: 'I', II: 'II', III: 'III', X: 'X', XX: 'XX' };
+const fmt = (t) => {
+  t = Math.max(0, t || 0);
+  const m = Math.floor(t / 60), s = t - m * 60;
+  return `${m}:${s.toFixed(1).padStart(4, '0')}`;
+};
+const msg = (el, text, err = false) => { el.textContent = text; el.classList.toggle('err', err); };
 
-// ---------- state ----------
-let uid = 1;
-const nid = () => 'i' + (uid++) + Math.random().toString(36).slice(2, 6);
-
-function sample() {
-  const sub = (name, cur, max, equip = '') => ({ id: nid(), name, cur, max, equip });
-  return [
-    { id: nid(), name: '제1여단 1대대', x: 5, y: 6, type: 'inf', ech: 'II',
-      subs: [sub('보병중대', 200, 220, '전차 12대, 장갑차 10대'), sub('보병중대', 130, 150), sub('본부중대', 50, 50)] },
-    { id: nid(), name: '제1여단 2대대', x: 8, y: 9, type: 'mech', ech: 'II',
-      subs: [sub('기계화중대', 140, 160, '장갑차 14대'), sub('본부중대', 40, 60)] },
-    { id: nid(), name: '제1여단 3대대', x: 11, y: 6, type: 'armor', ech: 'II',
-      subs: [sub('전차중대', 70, 90, '전차 14대'), sub('전차중대', 30, 90, '전차 6대')] },
-    { id: nid(), name: '제1여단 포병대대', x: 7, y: 13, type: 'arty', ech: 'II',
-      subs: [sub('포대', 90, 100, '견인포 6문')] },
-    { id: nid(), name: '제1여단 본부', x: 9, y: 4, type: 'hq', ech: 'X',
-      subs: [sub('본부중대', 60, 60)] },
-  ];
+/* ---------- loading ---------- */
+function loadSource(src, isFile) {
+  msg($('loadMsg'), '불러오는 중…');
+  $('result').classList.add('hidden');
+  if (objectUrl && !isFile) { URL.revokeObjectURL(objectUrl); objectUrl = null; }
+  if (isFile) video.removeAttribute('crossorigin');
+  else video.crossOrigin = 'anonymous';
+  video.src = src;
+  video.load();
 }
 
-let units;
-try { units = JSON.parse(localStorage.getItem(KEY)); } catch (e) {}
-if (!Array.isArray(units)) units = N === 20 ? sample() : [];
-units.forEach(u => { u.subs = u.subs || []; delete u.support; });
-const save = () => { try { localStorage.setItem(KEY, JSON.stringify(units)); } catch (e) {} };
-
-const view = { s: 1, ox: 0, oy: 0 };       // s: px per meter
-let selectedId = null;
-let mode = null;                            // {kind:'add'}
-
-const $ = id => document.getElementById(id);
-const vp = $('viewport'), canvas = $('grid'), layer = $('units');
-const ctx = canvas.getContext('2d');
-const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-const num = v => Math.max(0, Math.floor(Number(v) || 0));
-
-function totals(u) {
-  if (u.subs.length) return u.subs.reduce((a, s) => ({ cur: a.cur + s.cur, max: a.max + s.max }), { cur: 0, max: 0 });
-  return { cur: 0, max: 0 };
-}
-const pct = t => (t.max > 0 ? Math.round(t.cur / t.max * 100) : 0);
-const color = p => (p >= 70 ? '#8fd6a4' : p >= 40 ? '#f0cb7a' : '#ee9a92');
-
-// ---------- 단대호 (군대부호) ----------
-function symbolSVG(type, ech) {
-  // 메인 블럭(30x20)이 SVG 박스 전체. 제대 부호(X, II 등)는 박스 밖 위쪽에 따로 그려 정렬 기준에서 제외한다.
-  const st = 'stroke="#000" stroke-width="1.1" stroke-linecap="round" stroke-linejoin="round" fill="none"';
-  let inner = '';
-  if (type === 'inf' || type === 'mech') inner += `<path d="M6 5L26 18M26 5L6 18" ${st}/>`;
-  if (type === 'armor' || type === 'mech') inner += `<ellipse cx="16" cy="11.5" rx="9" ry="5.5" ${st}/>`;
-  if (type === 'arty') inner += '<circle cx="16" cy="11.5" r="3.4" fill="#000"/>';
-  if (type === 'recon') inner += `<path d="M6 18L26 5" ${st}/>`;
-  if (type === 'hq') inner += `<path d="M11 18V5h9l-2 3 2 3h-9" ${st}/>`;
-  if (type === 'log') inner += `<path d="M7 15.5h18" ${st}/>`;
-  if (type === 'ad') inner += `<path d="M6.5 16a9.5 7.5 0 0 1 19 0" ${st}/>`;
-  if (type === 'eng') inner += `<path d="M7 16.5V8.5h4v4h10v-4h4v8" ${st}/>`;
-  if (type === 'med') inner += `<path d="M16 5.5v12M10 11.5h12" ${st}/>`;
-  const e = ech ? `<text x="16" y="-1.5" font-size="9" font-weight="700" text-anchor="middle" fill="#000" font-family="sans-serif">${esc(ech)}</text>` : '';
-  return `<svg viewBox="0 0 32 22" xmlns="http://www.w3.org/2000/svg" style="overflow:visible">${e}<rect x="1" y="1" width="30" height="20" rx="4" ry="4" fill="#fff" stroke="#000" stroke-width="1.1"/>${inner}</svg>`;
-}
-
-// ---------- 지형 ----------
-// 평지/산지 구분. 산지 고도 50~200m, 등고선 10m 간격 (50m 배수는 굵게).
-const TKEY = 'tactis.terrain';
-let TG, CELL_M;                  // 고도 격자 칸 수 / 한 칸 크기(m)
-const setTerrainGrid = () => { TG = Math.min(N * 10, 400); CELL_M = MAP / TG; };  // 기본 10m, 큰 맵은 최대 400칸
-setTerrainGrid();
-const MTN_MIN = 50, MTN_MAX = 200, CI = 10;
-const MIN_MTN_M2 = TILE * TILE;   // 산지 최소 면적: 타일 1칸(100m x 100m)
-const MAX_SLOPE = 0.5;            // 최대 평균 경사 (높이/수평거리 ≈ 27°)
-const SLOPE_HIGH = 0.5;           // 더 높은 산지: 산자락~정상 평균 경사 한도 (≈22°, 완만하게)
-const FOOT_HIGH = 0.6;            // 더 높은 산지: 산자락 최대 경사 (≈27°)
-let terrainCfg = null, terrain = null;
-try { terrainCfg = JSON.parse(localStorage.getItem(TKEY)); } catch (e) {}
-
-function mulberry32(a) {
-  return () => { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; };
-}
-
-function heightField(seed, ratio, high) {
-  const S = TG + 1, n = new Float32Array(S * S);
-  const hash = (x, y, o) => {
-    let h = Math.imul(x, 374761393) + Math.imul(y, 668265263) + Math.imul(seed + o * 1013, 362437) | 0;
-    h = Math.imul(h ^ (h >>> 13), 1274126177); h ^= h >>> 16;
-    return (h >>> 0) / 4294967296;
-  };
-  const sm = t => t * t * (3 - 2 * t);
-  const vnoise = (x, y, o) => {
-    const xi = Math.floor(x), yi = Math.floor(y), u = sm(x - xi), v = sm(y - yi);
-    const a = hash(xi, yi, o), b = hash(xi + 1, yi, o), c = hash(xi, yi + 1, o), d = hash(xi + 1, yi + 1, o);
-    return a + (b - a) * u + (c - a) * v + (a - b - c + d) * u * v;
-  };
-  // 지형 굴곡 크기를 미터로 지정 (600m 산줄기 ~ 75m 잔굴곡)
-  const OCT = [[600, 1], [300, .5], [150, .25], [75, .125]].map(([m, a]) => [m * (high ? 1.4 : 1) / CELL_M, a]);   // 더 높은 산지는 산 하나가 조금 더 넓게
-  for (let j = 0; j < S; j++) for (let i = 0; i < S; i++) {
-    let v = 0;
-    OCT.forEach(([f, a], o) => { v += a * vnoise(i / f, j / f, o); });
-    n[j * S + i] = v / 1.875;
-  }
-
-  // 설정 비중만큼 산지가 되도록 임계값을 분위수로 결정.
-  // 타일 1칸보다 작은 조각은 평지로 돌리고, 그만큼 줄어든 비중을 한 번 더 보정한다.
-  const sorted = Float32Array.from(n).sort();
-  const m = new Uint8Array(S * S);
-  let tau, comps;
-  // 더 높은 산지: 산지가 높아진 만큼 전체 면적은 설정 비중의 93%로 약간만 줄인다
-  for (let pass = 0, r = high ? ratio * 0.93 : ratio; pass < 3; pass++) {
-    tau = r >= 1 ? -Infinity : sorted[Math.min(S * S - 1, Math.floor((1 - r) * S * S))];
-    for (let k = 0; k < m.length; k++) m[k] = n[k] >= tau ? 1 : 0;
-    const lab = new Int32Array(S * S).fill(-1);
-    comps = [];
-    for (let k = 0; k < m.length; k++) {
-      if (!m[k] || lab[k] >= 0) continue;
-      const id = comps.length, q = [k]; lab[k] = id;
-      for (let h = 0; h < q.length; h++) {
-        const p = q[h], i = p % S, j = (p - i) / S;
-        for (const [di, dj] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
-          const x = i + di, y = j + dj;
-          if (x < 0 || y < 0 || x >= S || y >= S) continue;
-          const t = y * S + x;
-          if (m[t] && lab[t] < 0) { lab[t] = id; q.push(t); }
-        }
-      }
-      comps.push(q);
-    }
-    let removed = 0;
-    comps = comps.filter(q => {
-      if (q.length * CELL_M * CELL_M >= MIN_MTN_M2) return true;
-      q.forEach(p => { m[p] = 0; }); removed += q.length; return false;
-    });
-    if (!removed || r >= 1) break;
-    r = Math.min(1, r + removed / (S * S));
-  }
-
-  // 산지 경계로부터의 거리 (chamfer) → 산 안쪽일수록 높게
-  const INF = 1e9, d = new Float32Array(S * S);
-  const anyPlain = m.some(v => !v);
-  for (let k = 0; k < d.length; k++) {
-    const i = k % S, j = (k - i) / S;
-    d[k] = !m[k] ? 0 : anyPlain ? INF : Math.min(i, j, S - 1 - i, S - 1 - j) + 1;
-  }
-  const at = (i, j) => (i < 0 || j < 0 || i >= S || j >= S) ? INF : d[j * S + i];
-  for (let j = 0; j < S; j++) for (let i = 0; i < S; i++) {
-    const k = j * S + i; if (!m[k]) continue;
-    d[k] = Math.min(d[k], at(i - 1, j) + 1, at(i, j - 1) + 1, at(i - 1, j - 1) + 1.414, at(i + 1, j - 1) + 1.414);
-  }
-  for (let j = S - 1; j >= 0; j--) for (let i = S - 1; i >= 0; i--) {
-    const k = j * S + i; if (!m[k]) continue;
-    d[k] = Math.min(d[k], at(i + 1, j) + 1, at(i, j + 1) + 1, at(i + 1, j + 1) + 1.414, at(i - 1, j + 1) + 1.414);
-  }
-  for (let pass = 0; pass < 2; pass++) {          // 능선 꺾임 완화
-    const c = Float32Array.from(d);
-    for (let j = 0; j < S; j++) for (let i = 0; i < S; i++) {
-      const k = j * S + i; if (!m[k]) continue;
-      let sum = 0, cnt = 0;
-      for (let b = -1; b <= 1; b++) for (let a = -1; a <= 1; a++) {
-        const x = i + a, y = j + b; if (x < 0 || y < 0 || x >= S || y >= S) continue;
-        sum += c[y * S + x]; cnt++;
-      }
-      d[k] = sum / cnt;
-    }
-  }
-
-  // 덩어리 크기에 따라 최고 고도 결정: 작은 산은 낮게, 큰 산지는 200m까지 허용
-  const rnd = mulberry32(seed ^ 0x5bd1e995);
-  const Hf = new Float32Array(S * S);
-  for (let k = 0; k < Hf.length; k++) Hf[k] = MTN_MIN - 1 - Math.max(0, tau - n[k]) * 300;
-  comps.forEach(q => {
-    let nmax = tau, dmax = 0;
-    q.forEach(p => { nmax = Math.max(nmax, n[p]); dmax = Math.max(dmax, d[p]); });
-    const area = q.length * CELL_M * CELL_M;
-    const gn = q.map(p => (nmax > tau ? (n[p] - tau) / (nmax - tau) : 1));
-    if (!high) {
-      // 면적 0.8km²(타일 80칸) 이상이면 200m까지, 작을수록 낮게. 산 반경 대비 경사가 과하지 않게 제한
-      const size = Math.min(1, Math.sqrt(area / 800000));
-      let peak = MTN_MIN + (MTN_MAX - MTN_MIN) * size * (0.75 + 0.25 * rnd());
-      peak = Math.min(peak, MTN_MIN + dmax * CELL_M * MAX_SLOPE);
-      q.forEach((p, idx) => {
-        const g = Math.min(1, Math.max(0, 0.6 * gn[idx] + 0.4 * (dmax > 0 ? d[p] / dmax : 1)));
-        Hf[p] = Math.min(MTN_MAX, MTN_MIN + 0.01 + (peak - MTN_MIN) * g);
-      });
-      return;
-    }
-    // 더 높은 산지: 모든 산이 기존보다 높게(면적 0.45km²부터 최고 고도급), 대신 경사는 완만하게.
-    // 높이는 산 반경으로 제한(평균 경사 SLOPE_HIGH)해서 작은 산은 여전히 낮고, 산자락도 FOOT_HIGH 이내로만 오른다.
-    const sizeH = Math.min(1, Math.sqrt(area / 450000));
-    let peak = MTN_MIN + (MTN_MAX - MTN_MIN) * (0.6 + 0.4 * sizeH) * (0.88 + 0.12 * rnd());
-    peak = Math.min(peak, MTN_MIN + dmax * CELL_M * SLOPE_HIGH);
-    q.forEach((p, idx) => {
-      const g = Math.min(1, Math.max(0, 0.4 * gn[idx] + 0.6 * (dmax > 0 ? d[p] / dmax : 1)));
-      const top = MTN_MIN + (peak - MTN_MIN) * (1 - (1 - g) ** 1.6);          // 가장자리에서 완만히 시작해 넓게 오르는 형태
-      Hf[p] = Math.min(MTN_MAX, MTN_MIN + FOOT_HIGH * d[p] * CELL_M, Math.max(MTN_MIN + 0.01, top));
-    });
-  });
-  if (high) {                                  // 산지 안에서만 2회 평활화: 등고선 꺾임과 국소 급경사 완화
-    for (let pass = 0; pass < 2; pass++) {
-      const c = Float32Array.from(Hf);
-      for (let j = 1; j < S - 1; j++) for (let i = 1; i < S - 1; i++) {
-        const k = j * S + i; if (c[k] < MTN_MIN + 0.005) continue;
-        let sum = 0, cnt = 0;
-        for (let b = -1; b <= 1; b++) for (let a = -1; a <= 1; a++) { const v = c[k + b * S + a]; if (v >= MTN_MIN) { sum += v; cnt++; } }
-        Hf[k] = Math.max(MTN_MIN + 0.01, sum / cnt);
-      }
-    }
-  }
-  return Hf;
-}
-
-// 고도 격자 → 산지 채움 경로 + 등고선 경로 (미터 좌표)
-function buildTerrain(cfg) {
-  if (!cfg || !(cfg.ratio > 0)) return null;
-  const S = TG + 1, C = CELL_M, Hf = heightField(cfg.seed, Math.min(cfg.ratio, 0.95), !!cfg.high);
-  const fill = new Path2D(), minor = new Path2D(), major = new Path2D(), labels = [];
-  const corner = [[0, 0], [1, 0], [1, 1], [0, 1]];
-  for (let j = 0; j < TG; j++) {
-    let run = -1;
-    for (let i = 0; i <= TG; i++) {
-      const v = i < TG ? [Hf[j * S + i], Hf[j * S + i + 1], Hf[(j + 1) * S + i + 1], Hf[(j + 1) * S + i]] : null;
-      const full = v && v.every(x => x >= MTN_MIN);
-      if (full) { if (run < 0) run = i; continue; }
-      if (run >= 0) { fill.rect(run * C, j * C, (i - run) * C, C); run = -1; }
-      if (!v || !v.some(x => x >= MTN_MIN)) continue;
-      // 경계 칸: 모서리를 돌며 안쪽 꼭짓점과 경계 교차점으로 다각형 구성
-      const pts = [];
-      for (let k = 0; k < 4; k++) {
-        const nx = (k + 1) % 4, a = v[k], b = v[nx], ia = a >= MTN_MIN, ib = b >= MTN_MIN;
-        if (ia) pts.push(corner[k]);
-        if (ia !== ib) {
-          const t = (MTN_MIN - a) / (b - a);
-          pts.push([corner[k][0] + (corner[nx][0] - corner[k][0]) * t, corner[k][1] + (corner[nx][1] - corner[k][1]) * t]);
-        }
-      }
-      pts.forEach(([x, y], k) => fill[k ? 'lineTo' : 'moveTo']((i + x) * C, (j + y) * C));
-      fill.closePath();
-    }
-  }
-  // 등고선 (marching squares)
-  for (let L = MTN_MIN; L <= MTN_MAX; L += CI) {
-    const path = L % 50 === 0 ? major : minor;
-    for (let j = 0; j < TG; j++) for (let i = 0; i < TG; i++) {
-      const v = [Hf[j * S + i], Hf[j * S + i + 1], Hf[(j + 1) * S + i + 1], Hf[(j + 1) * S + i]];
-      const ins = v.map(x => x >= L);
-      const cnt = ins.filter(Boolean).length;
-      if (cnt === 0 || cnt === 4) continue;
-      const e = [];                                      // 변 0:상 1:우 2:하 3:좌 교차점
-      for (let k = 0; k < 4; k++) {
-        const nx = (k + 1) % 4;
-        if (ins[k] === ins[nx]) { e.push(null); continue; }
-        const t = (L - v[k]) / (v[nx] - v[k]);
-        e.push([(i + corner[k][0] + (corner[nx][0] - corner[k][0]) * t) * C, (j + corner[k][1] + (corner[nx][1] - corner[k][1]) * t) * C]);
-      }
-      const seg = (a, b) => {
-        path.moveTo(e[a][0], e[a][1]); path.lineTo(e[b][0], e[b][1]);
-        // 주곡선(50m 배수)에 고도 숫자 후보: 서로 300m(타일 3칸) 이상 떨어지게
-        if (L % 50 === 0 && L > MTN_MIN) {
-          const x = (e[a][0] + e[b][0]) / 2, y = (e[a][1] + e[b][1]) / 2;
-          if (labels.every(l => (l.x - x) ** 2 + (l.y - y) ** 2 > 300 * 300)) labels.push({ x, y, L });
-        }
-      };
-      if (cnt === 2 && ins[0] === ins[2]) {              // 안장점: 중심값으로 연결 방향 결정
-        const cIn = (v[0] + v[1] + v[2] + v[3]) / 4 >= L;
-        const cut = [0, 1, 2, 3].filter(k => ins[k] !== cIn);
-        cut.forEach(k => seg((k + 3) % 4, k));
-      } else {
-        const idx = [0, 1, 2, 3].filter(k => e[k]);
-        seg(idx[0], idx[1]);
-      }
-    }
-  }
-  return { fill, minor, major, labels };
-}
-
-terrain = buildTerrain(terrainCfg);
-
-// ---------- 레이어: 구역 ----------
-// 구역은 닫힌 다각형. 시작 지점에서 출발해 지점을 차례로 찍고, 시작 지점을 다시 눌러 이어지면 추가된다.
-const LKEY = 'tactis.layers';
-// 레이어 목록 layers.list: 위에서 아래 순서(앞쪽이 위층). 필드는 항상 최하위라 목록에 없다 (layers.fieldName만 보관).
-// 각 레이어 {id, type:'zone'|'line'|'terrain', n:유형 내 번호, name:사용자 지정 이름, show, pts}. pts가 null이면 아직 비어 있는 기본 레이어.
-const TYPE_NAME = { zone: '구역', line: '경계선', road: '도로', terrain: '지형', field: '필드' };
-// 구역/경계선/도로는 유형마다 하나의 통합 레이어다 (보이기·순서·이름이 그 유형 전체에 적용).
-// zone: items = [다각형 지점 목록...], line: items = [선 지점 목록...], road: cells = [[칸x, 칸y]...]
-// 레이어는 실제로 존재할 때만 목록에 나온다 (지형은 산지가 5% 이상일 때).
-const defaultLayers = () => ({ fieldName: '', list: [] });
-let layers = defaultLayers();
-function layerEmpty(l) { return !((l.items && l.items.length) || (l.cells && l.cells.length) || (l.curves && l.curves.length)); }
-function normalizeLayers(raw) {
-  const out = [], by = {};
-  (raw || []).forEach(l => {
-    if (l.type === 'terrain') { if (!by.terrain) out.push(by.terrain = { id: 'terrain', type: 'terrain', name: l.name || '', show: l.show !== false }); return; }
-    if (!['zone', 'line', 'road'].includes(l.type)) return;
-    let t = by[l.type];
-    if (!t) { out.push(t = by[l.type] = { id: l.type, type: l.type, name: l.name || '', show: l.show !== false, ...(l.type === 'road' ? { cells: [], curves: [], names: [], links: [] } : { items: [] }) }); }
-    else if (l.show !== false) t.show = true;
-    if (l.type === 'road') {                                       // 이전 형식(범위)의 도로는 칸 목록으로 변환
-      const cs = l.cells || (l.rect ? (() => { const r = l.rect, a = []; for (let y = r.y0; y <= r.y1; y++) for (let x = r.x0; x <= r.x1; x++) a.push([x, y]); return a; })() : []);
-      cs.forEach(c => { if (!t.cells.some(q => q[0] === c[0] && q[1] === c[1])) t.cells.push(c); });
-      (l.curves || []).forEach(c => { if (Array.isArray(c) && c.length >= 3) t.curves.push(c); });
-      (l.names || []).forEach(n => t.names.push(n));
-      if (l.links) l.links.forEach(k => t.links.push(k)); else t.legacy = true;   // 예전 데이터는 이어진 칸 연결 정보가 없다   // 곡선 도로: [시작, 조절점, 도착]
-    } else (l.items || (l.pts ? [l.pts] : [])).forEach(p => t.items.push(p));
-  });
-  out.forEach(t => {                                               // 예전 데이터: 이웃한 칸은 모두 이어진 것으로 본다
-    if (t.type !== 'road' || !t.legacy) return;
-    const ks = new Set(t.cells.map(c => c[0] + ',' + c[1])), lk = new Set(t.links);
-    t.cells.forEach(([x, y]) => { if (ks.has((x + 1) + ',' + y)) lk.add(x + ',' + y + ',h'); if (ks.has(x + ',' + (y + 1))) lk.add(x + ',' + y + ',v'); });
-    t.links = [...lk]; delete t.legacy;
-  });
-  return out.filter(l => l.type === 'terrain' || !layerEmpty(l));
-}
-try {
-  const l = JSON.parse(localStorage.getItem(LKEY));
-  if (l && Array.isArray(l.list)) layers = { fieldName: l.fieldName || '', list: normalizeLayers(l.list) };
-  else if (l && (l.zones || l.borders)) {                       // 가장 오래된 형식
-    const zs = (l.zones || l.borders).map(z => ({ type: 'zone', show: !!l.show, pts: z.pts }));
-    const tr = { type: 'terrain', show: l.terrain !== false };
-    layers = { fieldName: '', list: normalizeLayers((l.order && l.order[0] === 'terrain') ? [tr, ...zs] : [...zs, tr]) };
-  }
-} catch (e) {}
-const saveLayers = () => { try { localStorage.setItem(LKEY, JSON.stringify(layers)); } catch (e) {} };
-const layerLabel = l => TYPE_NAME[l.type];
-// 지형 레이어: 산지가 5% 이상일 때만 존재 (0%면 사라진다). 새로 생길 때는 필드 바로 위(맨 아래층)에 둔다.
-function syncTerrainLayer() {
-  const has = !!terrain && !!terrainCfg && terrainCfg.ratio >= 0.05 - 1e-9;
-  const cur = layers.list.find(l => l.type === 'terrain');
-  if (has && !cur) layers.list.push({ id: 'terrain', type: 'terrain', name: '', show: true });
-  if (!has && cur) layers.list = layers.list.filter(l => l !== cur);
-}
-syncTerrainLayer();
-// 유형별 통합 레이어를 가져온다 (없으면 맨 위에 새로 만든다)
-function layerOf(type) {
-  let l = layers.list.find(x => x.type === type);
-  if (!l) { l = { id: type, type, name: '', show: true, ...(type === 'road' ? { cells: [], curves: [], names: [], links: [] } : { items: [] }) }; layers.list.unshift(l); }
-  return l;
-}
-function dropIfEmpty(l) { if (l && layerEmpty(l)) layers.list = layers.list.filter(x => x !== l); }
-let lastPtrType = 'mouse';                          // 마지막으로 지도를 누른 입력 방식 (touch면 HUD를 손가락에서 먼 곳에 둔다)
-vp.addEventListener('pointerdown', e => { lastPtrType = e.pointerType || 'mouse'; }, true);
-let curveHover = null;                              // 곡선 도로 미리보기용 마우스 위치
-let draft = null;                                   // 작성 중인 구역/경계선 지점 [[x,y], ...] (미터)
-let redoStack = [];                                 // undo로 되돌린 지점 (redo용)
-let lastPt = null;                                  // 마지막으로 누른 지점 (HUD 위치 기준)
-const SNAP_PX = 16;                                 // 시작 지점 근처 이 거리 안을 누르면 이어진 것으로 본다
-
-// 도로: 칸마다 중앙 정렬된 35% 폭 정사각형을 두고, 서로 이어진 칸 사이도 같은 폭으로 잇는다. 한 번에 한 색으로 채워 색이 균일하다.
-// 곡선의 중심선 위 표본점 (5m 이하 간격) — 곡선과의 거리 계산용
-const sampleCache = new WeakMap();
-function curveSamples(c) {
-  let r = sampleCache.get(c); if (r) return r;
-  const len = Math.hypot(c[1][0] - c[0][0], c[1][1] - c[0][1]) + Math.hypot(c[2][0] - c[1][0], c[2][1] - c[1][1]), n = Math.max(12, Math.ceil(len / 4));
-  r = [];
-  for (let i = 0; i <= n; i++) { const t = i / n, u = 1 - t; r.push([u * u * c[0][0] + 2 * u * t * c[1][0] + t * t * c[2][0], u * u * c[0][1] + 2 * u * t * c[1][1] + t * t * c[2][1]]); }
-  sampleCache.set(c, r); return r;
-}
-
-// 도로 색상: 0 기본(연한 회색), 1 이전 기본색(회색), 2 고속도로(노랑/주황)
-const ROAD_COLORS = ['#cfd2d8', '#6b7078', '#f5a524'], ROAD_EDGE = ['#a9aeb7', '#4c5159', '#d98a0d'];
-function roadPath(cells, curves, links) {
-  const T = TILE, h = T * 0.15, key = (x, y) => x + ',' + y, lk = new Set(links || []);
-  const colOf = new Map(cells.map(c => [key(c[0], c[1]), c[2] || 0]));
-  const paths = ROAD_COLORS.map(() => new Path2D());       // 색마다 하나의 경로 (같은 색 안에서는 겹쳐도 균일)
-  // 곡선 도로의 시작/도착 칸은 사각형 대신 원(반지름 = 도로 반폭)으로 처리: 직선 도로 끝의 사각 모서리가 곡선 옆으로 삐져나오지 않고 매끄럽게 이어진다
-  const disk = new Set();
-  (curves || []).forEach(c => [c[0], c[2]].forEach(q => disk.add(key(Math.floor(q[0] / T), Math.floor(q[1] / T)))));
-  // 곡선까지의 거리: 표본점을 칸별로 모아 주변 3x3칸만 본다
-  const grid = new Map();
-  (curves || []).forEach(c => curveSamples(c).forEach(q => { const k = key(Math.floor(q[0] / T), Math.floor(q[1] / T)); (grid.get(k) || grid.set(k, []).get(k)).push(q); }));
-  const nearCurve = (px, py) => {
-    let best = Infinity; const gx = Math.floor(px / T), gy = Math.floor(py / T);
-    for (let j = -1; j <= 1; j++) for (let i = -1; i <= 1; i++) { const a = grid.get(key(gx + i, gy + j)); if (a) for (const q of a) { const d = Math.hypot(q[0] - px, q[1] - py); if (d < best) best = d; } }
-    return best;
-  };
-  const tip = new Map();                                   // 끝 정리된 칸의 실제 끝점
-  const skip = new Set();                                  // 곡선 안에 완전히 묻힌 외톨이 칸
-  cells.forEach(([x, y]) => {
-    const k = key(x, y), cx = (x + 0.5) * T, cy = (y + 0.5) * T;
-    const pk = paths[colOf.get(k) || 0];
-    if (disk.has(k)) { pk.moveTo(cx + h, cy); pk.arc(cx, cy, h, 0, Math.PI * 2); return; }
-    const nb = [];                                         // 이어진(연결된) 이웃 방향
-    if (lk.has(k + ',h')) nb.push([1, 0]); if (lk.has(key(x - 1, y) + ',h')) nb.push([-1, 0]); if (lk.has(k + ',v')) nb.push([0, 1]); if (lk.has(key(x, y - 1) + ',v')) nb.push([0, -1]);
-    if (nb.length <= 1 && grid.size && nearCurve(cx, cy) <= h + 0.5) {
-      // 직선 도로의 끝(또는 외톨이 칸)이 곡선 띠 안에 있으면, 칸 중앙에서 시작하느라 생기는 사각 끝이 곡선 반대쪽으로 튀어나온다.
-      // 끝을 뒤로 물려서 끝선의 양 모서리까지 곡선 띠 안에 들어오게 자동 보정한다.
-      if (!nb.length) { skip.add(k); return; }
-      const o = [-nb[0][0], -nb[0][1]], perp = [-o[1], o[0]];
-      let ext = 0;
-      for (let s = 0; s >= -0.6 * T; s -= 2) {
-        const ex = cx + o[0] * s, ey = cy + o[1] * s;
-        if (nearCurve(ex, ey) <= h + 0.5 && nearCurve(ex + perp[0] * h, ey + perp[1] * h) <= h + 0.5 && nearCurve(ex - perp[0] * h, ey - perp[1] * h) <= h + 0.5) { ext = s; break; }
-      }
-      tip.set(k, [cx + o[0] * ext, cy + o[1] * ext]);
-      return;
-    }
-    pk.rect(cx - h, cy - h, 2 * h, 2 * h);
-  });
-  const at = (x, y) => tip.get(key(x, y)) || [(x + 0.5) * T, (y + 0.5) * T];
-  cells.forEach(([x, y]) => {
-    if (skip.has(key(x, y))) return;
-    const a = at(x, y);
-    const ca = paths[colOf.get(key(x, y)) || 0], ov = 0.4;                  // 이웃과의 연결은 절반씩 각자의 색으로 (이음새가 안 보이게 살짝 겹침)
-    if (lk.has(key(x, y) + ',h')) {                                        // 오른쪽 이웃과 연결
-      const b = at(x + 1, y), cb = paths[colOf.get(key(x + 1, y)) || 0], m = (a[0] + b[0]) / 2;
-      ca.rect(Math.min(a[0], m) - ov, a[1] - h, Math.abs(m - a[0]) + 2 * ov, 2 * h); cb.rect(Math.min(m, b[0]) - ov, b[1] - h, Math.abs(b[0] - m) + 2 * ov, 2 * h);
-    }
-    if (lk.has(key(x, y) + ',v')) {                                        // 아래쪽 이웃과 연결
-      const b = at(x, y + 1), cb = paths[colOf.get(key(x, y + 1)) || 0], m = (a[1] + b[1]) / 2;
-      ca.rect(a[0] - h, Math.min(a[1], m) - ov, 2 * h, Math.abs(m - a[1]) + 2 * ov); cb.rect(b[0] - h, Math.min(m, b[1]) - ov, 2 * h, Math.abs(b[1] - m) + 2 * ov);
-    }
-  });
-  return paths;
-}
-const ROAD_W = TILE * 0.3;
-// 곡선 도로: [시작, 조절점, 도착]의 2차 베지어 곡선 (캔버스가 곡선을 매끄럽게 그린다)
-function curvePath(c, p) {
-  p = p || new Path2D();
-  p.moveTo(c[0][0], c[0][1]); p.quadraticCurveTo(c[1][0], c[1][1], c[2][0], c[2][1]);
-  return p;
-}
-function drawRoad(l) {
-  if (!l.show || !((l.cells && l.cells.length) || (l.curves && l.curves.length))) return;
-  const { s, ox, oy } = view;
-  ctx.save();
-  ctx.setTransform(dpr * s, 0, 0, dpr * s, dpr * ox, dpr * oy);
-  const edge = 3 / s, paths = roadPath(l.cells || [], l.curves, l.links);
-  // 윤곽을 먼저 굵게 그리고 그 위에 면을 채우면, 겹친 사각형 안쪽 선은 가려지고 바깥 윤곽만 남는다
-  ctx.lineJoin = 'miter'; ctx.lineCap = 'round';
-  paths.forEach((p, i) => { ctx.strokeStyle = ROAD_EDGE[i]; ctx.lineWidth = edge; ctx.stroke(p); });
-  (l.curves || []).forEach(c => { ctx.strokeStyle = ROAD_EDGE[c[3] || 0]; ctx.lineWidth = ROAD_W + edge; ctx.lineJoin = 'round'; ctx.stroke(curvePath(c)); });
-  paths.forEach((p, i) => { ctx.fillStyle = ROAD_COLORS[i]; ctx.fill(p); });
-  (l.curves || []).forEach(c => { ctx.strokeStyle = ROAD_COLORS[c[3] || 0]; ctx.lineWidth = ROAD_W; ctx.stroke(curvePath(c)); });   // 곡선도 색별로 불투명하게
-  ctx.restore();
-  drawRoadNames(l);
-}
-
-// ---------- 도로명 ----------
-// 도로명은 두 칸 이상 이어진 직선 도로 위에 가로(가로 도로) 또는 세로(세로 도로, 한 글자씩 쌓음)로 표기한다.
-// 지정한 칸에서 시작해 이어진 칸 수만큼 쓰고, 오른쪽/아래가 모자라면 왼쪽/위로 당겨서 지정한 칸에서 끝나게 한다. 글자는 도로 폭 안에 들어가게 크기를 조정한다.
-const roadSet = l => new Set((l.cells || []).map(c => c[0] + ',' + c[1]));
-// 도로 칸 사이의 연결: 'x,y,h' = (x,y)와 오른쪽 칸, 'x,y,v' = (x,y)와 아래쪽 칸이 이어짐. 이웃해 있어도 연결을 만들지 않으면 서로 이어지지 않는다.
-const linkKey = (ax, ay, bx, by) => (by === ay && bx === ax + 1) ? ax + ',' + ay + ',h' : (by === ay && bx === ax - 1) ? bx + ',' + by + ',h' : (bx === ax && by === ay + 1) ? ax + ',' + ay + ',v' : (bx === ax && by === ay - 1) ? bx + ',' + by + ',v' : null;
-function pruneLinks(l) {
-  const set = roadSet(l);
-  l.links = [...new Set(l.links || [])].filter(k => { const [x, y, o] = k.split(','), nx = +x + (o === 'h' ? 1 : 0), ny = +y + (o === 'v' ? 1 : 0); return set.has(x + ',' + y) && set.has(nx + ',' + ny); });
-}
-function roadRun(lk, x, y, o) {                              // 연결된 칸만 따라 이어진 한 줄
-  const dx = o === 'h' ? 1 : 0, dy = o === 'h' ? 0 : 1;
-  let sx = x, sy = y; while (lk.has((sx - dx) + ',' + (sy - dy) + ',' + o)) { sx -= dx; sy -= dy; }
-  const run = [[sx, sy]]; let cx = sx, cy = sy; while (lk.has(cx + ',' + cy + ',' + o)) { cx += dx; cy += dy; run.push([cx, cy]); }
-  return { run, i: run.findIndex(c => c[0] === x && c[1] === y) };
-}
-function nameOrientation(lk, x, y) {                         // 1x1(어느 방향으로도 2칸 미만)이면 null
-  const h = roadRun(lk, x, y, 'h'), v = roadRun(lk, x, y, 'v');
-  if (h.run.length < 2 && v.run.length < 2) return null;
-  return h.run.length >= v.run.length ? 'h' : 'v';
-}
-function nameLayout(set, lk, nm, measure) {
-  if (!set.has(nm.x + ',' + nm.y)) return null;
-  const { run, i } = roadRun(lk, nm.x, nm.y, nm.o);
-  if (run.length < 2 || i < 0) return null;
-  const chars = Array.from(nm.t), n = chars.length; if (!n) return null;
-  const fsMax = ROAD_W * 0.72, cap = 0.92 * TILE;
-  const W = Math.min(run.length, Math.max(2, Math.ceil(n * fsMax / cap)));    // 글자 수에 맞는 칸 수 (최소 2칸)
-  let st = i; if (st + W > run.length) st = run.length - W;                  // 모자라면 왼쪽(위)으로 당긴다
-  const a = run[st], b = run[st + W - 1], cx = ((a[0] + b[0]) / 2 + 0.5) * TILE, cy = ((a[1] + b[1]) / 2 + 0.5) * TILE, span = W * TILE * 0.92;
-  let fs;
-  if (nm.o === 'h') { const w = measure(fsMax, nm.t); fs = Math.min(fsMax, fsMax * span / Math.max(w, 1)); }
-  else fs = Math.min(fsMax, span / (n * 1.08));
-  return { chars, cx, cy, fs, anchorCol: 0 };
-}
-function drawRoadNames(l) {
-  if (!l.names || !l.names.length || TILE * view.s < 30) return;                    // 타일 30px 미만이면 부대명처럼 가린다
-  const { s, ox, oy } = view, set = roadSet(l), lk = new Set(l.links || []), col = new Map((l.cells || []).map(c => [c[0] + ',' + c[1], c[2] || 0]));
-  ctx.save();
-  ctx.setTransform(dpr * s, 0, 0, dpr * s, dpr * ox, dpr * oy);
-  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-  const measure = (fs, t) => { ctx.font = `700 ${fs}px sans-serif`; return ctx.measureText(t).width; };
-  l.names.forEach(nm => {
-    const lay = nameLayout(set, lk, nm, measure); if (!lay) return;
-    const c = ROAD_COLORS[col.get(nm.x + ',' + nm.y) || 0], lum = parseInt(c.slice(1, 3), 16) * 0.3 + parseInt(c.slice(3, 5), 16) * 0.59 + parseInt(c.slice(5, 7), 16) * 0.11;
-    ctx.fillStyle = lum > 140 ? '#2b2f36' : '#ffffff'; ctx.font = `700 ${lay.fs}px sans-serif`;
-    if (nm.o === 'h') ctx.fillText(nm.t, lay.cx, lay.cy);
-    else { const step = lay.fs * 1.08, y0 = lay.cy - step * (lay.chars.length - 1) / 2; lay.chars.forEach((ch, k) => ctx.fillText(ch, lay.cx, y0 + k * step)); }
-  });
-  ctx.restore();
-}
-// 곡선이 지나는 칸 (삭제 범위/선택 판정용): 곡선을 촘촘히 표본해서 칸 번호를 모은다
-function curveCells(c) {
-  const set = new Set(), len = Math.hypot(c[1][0] - c[0][0], c[1][1] - c[0][1]) + Math.hypot(c[2][0] - c[1][0], c[2][1] - c[1][1]), n = Math.max(8, Math.ceil(len / 8));
-  for (let i = 0; i <= n; i++) {
-    const t = i / n, u = 1 - t, x = u * u * c[0][0] + 2 * u * t * c[1][0] + t * t * c[2][0], y = u * u * c[0][1] + 2 * u * t * c[1][1] + t * t * c[2][1];
-    const cx = Math.floor(x / TILE), cy = Math.floor(y / TILE);
-    if (cx >= 0 && cy >= 0 && cx < N && cy < N) set.add(cx + ',' + cy);
-  }
-  return set;
-}
-
-function drawLayerShape(l) {
-  if (l.type === 'road') { drawRoad(l); return; }
-  if (!l.items || !l.show) return;
-  const { s, ox, oy } = view;
-  ctx.save();
-  ctx.lineJoin = 'round'; ctx.lineCap = 'round';
-  l.items.forEach(pts => {
-    ctx.beginPath(); pts.forEach((p, i) => { const x = ox + p[0] * s, y = oy + p[1] * s; i ? ctx.lineTo(x, y) : ctx.moveTo(x, y); });
-    if (l.type === 'zone') {
-      ctx.closePath(); ctx.fillStyle = 'rgba(20,20,20,.07)'; ctx.fill();
-      ctx.setLineDash([9, 5]); ctx.lineWidth = 2; ctx.strokeStyle = 'rgba(25,25,25,.85)'; ctx.stroke();
-    } else {                                           // 경계선: 열린 선, 일점쇄선
-      ctx.setLineDash([14, 4, 3, 4]); ctx.lineWidth = 2.2; ctx.strokeStyle = 'rgba(15,15,15,.9)'; ctx.stroke();
-    }
-  });
-  ctx.restore();
-}
-
-// 작성 중인 구역/경계선은 레이어 순서와 무관하게 항상 맨 위에 보인다
-function drawDraft() {
-  const { s, ox, oy } = view;
-  const P = ([x, y]) => [ox + x * s, oy + y * s];
-  ctx.save();
-  ctx.lineJoin = 'round'; ctx.lineCap = 'round';
-  if (draft && draft.length && mode && mode.kind === 'curve') {            // 곡선 도로: 시작 · 조절점 · 도착, 마우스를 움직이면 곡선이 미리 보인다
-    const pts = draft.length === 2 && curveHover ? [...draft, curveHover] : draft;
-    if (pts.length === 3) {
-      ctx.save(); ctx.setTransform(dpr * s, 0, 0, dpr * s, dpr * ox, dpr * oy); ctx.strokeStyle = 'rgba(150,155,165,.6)'; ctx.lineWidth = ROAD_W; ctx.lineCap = 'round';
-      ctx.stroke(curvePath(pts)); ctx.restore();
-    }
-    ctx.setLineDash([4, 4]); ctx.lineWidth = 1.2; ctx.strokeStyle = 'rgba(25,25,25,.55)';        // 시작-조절점-도착 안내선
-    ctx.beginPath(); pts.forEach((p, i) => { const [x, y] = P(p); i ? ctx.lineTo(x, y) : ctx.moveTo(x, y); }); ctx.stroke();
-    ctx.setLineDash([]);
-    draft.forEach((p, i) => {
-      const [x, y] = P(p); ctx.beginPath(); ctx.arc(x, y, i === 1 ? 4 : 5, 0, 7);
-      ctx.fillStyle = i === 1 ? '#fff' : 'rgba(25,25,25,.95)'; ctx.fill(); ctx.lineWidth = 2; ctx.strokeStyle = 'rgba(25,25,25,.95)'; ctx.stroke();
-    });
-  } else if (draft && draft.length) {
-    ctx.setLineDash([]); ctx.lineWidth = 2; ctx.strokeStyle = 'rgba(25,25,25,.85)';
-    ctx.beginPath(); draft.forEach((p, i) => { const [x, y] = P(p); i ? ctx.lineTo(x, y) : ctx.moveTo(x, y); }); ctx.stroke();
-    draft.forEach((p, i) => {
-      const [x, y] = P(p);
-      const ring = i === 0 && mode && mode.kind === 'zone';          // 시작 지점 원형 표시는 구역만
-      ctx.beginPath(); ctx.arc(x, y, ring ? 7 : 4, 0, 7);
-      ctx.fillStyle = ring ? '#fff' : 'rgba(25,25,25,.95)'; ctx.fill();
-      if (ring) { ctx.lineWidth = 2.5; ctx.stroke(); }
-    });
-  }
-  ctx.restore();
-}
-
-// ---------- 맵 렌더링 ----------
-let W = 0, H = 0;   // 실제 뷰포트 컨테이너 크기 (iOS에서 innerHeight와 다를 수 있어 DOM 기준으로 통일)
-let dpr = 1;
-function sizeCanvas() {
-  dpr = window.devicePixelRatio || 1;
-  W = vp.clientWidth; H = vp.clientHeight;
-  canvas.width = Math.round(W * dpr);
-  canvas.height = Math.round(H * dpr);
-  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-}
-
-// 열 이름: A..Z, AA..AZ, BA..
-const colName = i => (i >= 26 ? String.fromCharCode(64 + Math.floor(i / 26)) : '') + String.fromCharCode(65 + i % 26);
-
-function drawTerrain() {
-  if (!terrain) return;
-  const { s, ox, oy } = view;
-  {
-    // 지형 경로는 미터 단위 → 현재 뷰 변환을 걸어 그대로 그린다
-    ctx.save();
-    ctx.setTransform(dpr * s, 0, 0, dpr * s, dpr * ox, dpr * oy);
-    ctx.fillStyle = '#d9edcc';
-    ctx.fill(terrain.fill);
-    ctx.lineJoin = 'round';
-    ctx.strokeStyle = 'rgba(88,128,66,.5)'; ctx.lineWidth = 0.8 / s;
-    ctx.stroke(terrain.minor);
-    ctx.strokeStyle = 'rgba(70,110,50,.75)'; ctx.lineWidth = 1.4 / s;
-    ctx.stroke(terrain.major);
-    ctx.restore();
-    if (TILE * s >= 60) {                 // 확대 시 주곡선 고도 표기
-      ctx.font = '600 10px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-      ctx.lineWidth = 3; ctx.strokeStyle = '#d9edcc'; ctx.fillStyle = 'rgba(60,95,42,.9)';
-      for (const l of terrain.labels) {
-        const x = ox + l.x * s, y = oy + l.y * s;
-        if (x < -20 || y < -20 || x > W + 20 || y > H + 20) continue;
-        ctx.strokeText(l.L, x, y); ctx.fillText(l.L, x, y);
-      }
-    }
-  }
-}
-
-function drawGrid() {
-  const { s, ox, oy } = view;
-  ctx.fillStyle = '#ffffff';
-  ctx.fillRect(0, 0, W, H);
-  ctx.fillStyle = '#f4f4f5';
-  ctx.fillRect(ox, oy, MAP * s, MAP * s);
-  // 레이어: 아래층부터 차례로 그린다 (필드는 최하위: 위의 바탕). 위층이 아래층을 가린다.
-  for (let i = layers.list.length - 1; i >= 0; i--) {
-    const l = layers.list[i];
-    if (l.type === 'terrain') { if (l.show) drawTerrain(); }
-    else drawLayerShape(l);
-  }
-  const tp = TILE * s;
-  ctx.lineWidth = 1;
-  ctx.strokeStyle = 'rgba(128,128,128,.4)';
-  ctx.beginPath();
-  for (let i = 0; i <= N; i++) {
-    const p = Math.round(ox + i * tp) + .5, q = Math.round(oy + i * tp) + .5;
-    ctx.moveTo(p, oy); ctx.lineTo(p, oy + MAP * s);
-    ctx.moveTo(ox, q); ctx.lineTo(ox + MAP * s, q);
-  }
-  ctx.stroke();
-  ctx.strokeStyle = 'rgba(128,128,128,.4)'; ctx.lineWidth = 1;
-  ctx.strokeRect(ox, oy, MAP * s, MAP * s);
-  if (tp >= 28) {
-    ctx.fillStyle = 'rgba(110,110,110,.8)';
-    ctx.font = '10px sans-serif';
-    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-    for (let i = 0; i < N; i++) {
-      ctx.fillText(colName(i), ox + (i + .5) * tp, oy - 8);
-      ctx.fillText(String(i + 1), ox - 10, oy + (i + .5) * tp);
-    }
-  }
-  if (tp >= 90) {
-    ctx.fillStyle = 'rgba(110,110,110,.5)';
-    ctx.font = '10px sans-serif';
-    ctx.textAlign = 'left'; ctx.textBaseline = 'top';
-    const c0 = Math.max(0, Math.floor(-ox / tp)), c1 = Math.min(N, Math.ceil((W - ox) / tp));
-    const r0 = Math.max(0, Math.floor(-oy / tp)), r1 = Math.min(N, Math.ceil((H - oy) / tp));
-    for (let r = r0; r < r1; r++) for (let c = c0; c < c1; c++)
-      ctx.fillText(colName(c) + (r + 1), ox + c * tp + 3, oy + r * tp + 3);
-  }
-  drawRoadSelection();
-  drawDraft();
-  placeZoneHud();
-  placeRoadHandles();
-}
-
-const els = new Map();   // id -> element
-
-function ensureEl(u) {
-  let el = els.get(u.id);
-  if (!el) {
-    el = document.createElement('div');
-    el.className = 'unit';
-    el.dataset.id = u.id;
-    el.innerHTML = '<div class="bld"></div><div class="hud"></div>';
-    layer.appendChild(el);
-    els.set(u.id, el);
-  }
-  return el;
-}
-
-function refreshHud(u) {
-  const el = ensureEl(u);
-  el.querySelector('.hud').innerHTML = `<span class="nm">${esc(u.name)}</span>${symbolSVG(u.type, u.ech)}`;
-  el.classList.toggle('sel', u.id === selectedId);
-}
-
-function syncUnits() {
-  const live = new Set(units.map(u => u.id));
-  for (const [id, el] of els) if (!live.has(id)) { el.remove(); els.delete(id); }
-  units.forEach(refreshHud);
-  layout();
-}
-
-function layout() {
-  const tp = TILE * view.s;
-  for (const u of units) {
-    const el = ensureEl(u);
-    if (drag && drag.id === u.id) { el.style.width = el.style.height = tp + 'px'; continue; }
-    el.style.width = el.style.height = tp + 'px';
-    el.style.transform = `translate(${view.ox + u.x * tp}px,${view.oy + u.y * tp}px)`;
-  }
-}
-
-function render() {
-  drawGrid();
-  layout();
-  vp.classList.toggle('compact', TILE * view.s < COMPACT_TILE_PX);
-}
-
-// ---------- 뷰 조작 ----------
-const minScale = () => Math.min(W, H - 40) / MAP * 0.7;
-const MAX_SCALE = 3;
-
-function clampView() {
-  const w = MAP * view.s;
-  const m = 60;
-  view.ox = Math.min(W - m, Math.max(m - w, view.ox));
-  view.oy = Math.min(H - m, Math.max(m - w, view.oy));
-}
-
-function fit() {
-  const avail = Math.min(W, H - 70);
-  view.s = Math.max(minScale(), avail / MAP * 0.96);
-  view.ox = (W - MAP * view.s) / 2;
-  view.oy = (H - MAP * view.s) / 2 + 20;
-  render();
-}
-
-function zoomAt(px, py, k) {
-  const ns = Math.min(MAX_SCALE, Math.max(minScale(), view.s * k));
-  const r = ns / view.s;
-  view.ox = px - (px - view.ox) * r;
-  view.oy = py - (py - view.oy) * r;
-  view.s = ns;
-  clampView();
-  render();
-}
-
-const ptrs = new Map();
-let gesture = null;
-let drag = null;               // 꾹 눌러 이동 중인 부대 {id, el, tile, ok}
-const HOLD_MS = 450;
-
-function startDrag(g) {
-  const u = byId(g.holdId);
-  if (!u || !gesture || gesture !== g) return;
-  g.moved = true;
-  drag = { id: u.id, el: ensureEl(u), tile: { x: u.x, y: u.y }, ok: true };
-  drag.el.classList.add('lift');
-  closeSheet();
-  try { vp.setPointerCapture(g.pid); } catch (e) {}
-  if (navigator.vibrate) navigator.vibrate(15);
-}
-
-function dragTo(px, py) {
-  const t = tileAt(px, py);
-  if (!t) return;
-  drag.tile = t;
-  drag.ok = !unitAtTile(t.x, t.y, drag.id);
-  const tp = TILE * view.s;
-  drag.el.style.transform = `translate(${view.ox + t.x * tp}px,${view.oy + t.y * tp}px)`;
-  drag.el.classList.toggle('bad', !drag.ok);
-}
-
-function endDrag() {
-  const u = byId(drag.id);
-  if (drag.ok && (u.x !== drag.tile.x || u.y !== drag.tile.y)) { u.x = drag.tile.x; u.y = drag.tile.y; save(); }
-  drag.el.classList.remove('lift', 'bad');
-  drag = null;
-  layout();
-}
-
-vp.addEventListener('pointerdown', e => {
-  ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY });
-  if (ptrs.size === 1) {
-    gesture = { moved: false, sx: e.clientX, sy: e.clientY, target: e.target, pinch: null, pid: e.pointerId };
-    const ue = !mode && e.target.closest && e.target.closest('.unit');
-    if (ue) {
-      const g = gesture;
-      g.holdId = ue.dataset.id;
-      g.timer = setTimeout(() => startDrag(g), HOLD_MS);
-    }
-  } else if (ptrs.size === 2) {
-    const [a, b] = [...ptrs.values()];
-    clearTimeout(gesture.timer);
-    if (drag) endDrag();
-    gesture.pinch = { d: Math.hypot(a.x - b.x, a.y - b.y) };
-    gesture.moved = true;
-  }
-});
-
-vp.addEventListener('pointermove', e => {
-  const p = ptrs.get(e.pointerId);
-  if (!p || !gesture) return;
-  if (drag) { dragTo(e.clientX, e.clientY); return; }
-  if (ptrs.size === 2 && gesture.pinch) {
-    p.x = e.clientX; p.y = e.clientY;
-    const [a, b] = [...ptrs.values()];
-    const d = Math.hypot(a.x - b.x, a.y - b.y);
-    zoomAt((a.x + b.x) / 2, (a.y + b.y) / 2, d / gesture.pinch.d);
-    gesture.pinch.d = d;
-    return;
-  }
-  if (ptrs.size !== 1) return;
-  const dx = e.clientX - p.x, dy = e.clientY - p.y;
-  if (!gesture.moved && Math.hypot(e.clientX - gesture.sx, e.clientY - gesture.sy) < 6) return;
-  clearTimeout(gesture.timer);
-  if (!gesture.moved) { gesture.moved = true; vp.classList.add('dragging'); vp.setPointerCapture(e.pointerId); }
-  p.x = e.clientX; p.y = e.clientY;
-  view.ox += dx; view.oy += dy;
-  clampView();
-  render();
-});
-
-function endPtr(e) {
-  if (!ptrs.has(e.pointerId)) return;
-  ptrs.delete(e.pointerId);
-  vp.classList.remove('dragging');
-  if (ptrs.size === 0 && gesture) {
-    const g = gesture; gesture = null;
-    clearTimeout(g.timer);
-    if (drag) endDrag();
-    if (!g.moved && e.type === 'pointerup') tap(e, g.target);
-  } else if (ptrs.size === 1 && gesture) {
-    gesture.pinch = null;
-    const p = [...ptrs.values()][0];
-    gesture.sx = p.x; gesture.sy = p.y;
-  }
-}
-vp.addEventListener('pointerup', endPtr);
-vp.addEventListener('pointercancel', endPtr);
-
-vp.addEventListener('wheel', e => {
+$('urlForm').addEventListener('submit', (e) => {
   e.preventDefault();
-  zoomAt(e.clientX, e.clientY, Math.exp(-e.deltaY * 0.0015));
-}, { passive: false });
-
-['copy', 'cut', 'paste', 'contextmenu', 'dragstart'].forEach(t => document.addEventListener(t, e => e.preventDefault()));
-document.addEventListener('selectstart', e => {
-  const n = e.target.nodeType === 1 ? e.target : e.target.parentElement;
-  if (!(n && n.closest('input, [contenteditable]'))) e.preventDefault();
-});
-
-new ResizeObserver(() => { sizeCanvas(); clampView(); render(); }).observe(vp);
-
-function tileAt(px, py) {
-  const tx = Math.floor((px - view.ox) / (TILE * view.s));
-  const ty = Math.floor((py - view.oy) / (TILE * view.s));
-  return tx >= 0 && ty >= 0 && tx < N && ty < N ? { x: tx, y: ty } : null;
-}
-const unitAtTile = (x, y, ignore) => units.find(u => u.x === x && u.y === y && u.id !== ignore);
-
-// 곡선 도로의 시작/조절/도착 지점은 항상 칸 정중앙에 놓는다
-const snapCenter = w => [(Math.floor(w[0] / TILE) + 0.5) * TILE, (Math.floor(w[1] / TILE) + 0.5) * TILE];
-const dist2 = (a, b) => (a[0] - b[0]) ** 2 + (a[1] - b[1]) ** 2;
-function pointInPoly(p, poly) {
-  let inside = false;
-  for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
-    const [xi, yi] = poly[i], [xj, yj] = poly[j];
-    if ((yi > p[1]) !== (yj > p[1]) && p[0] < (xj - xi) * (p[1] - yi) / (yj - yi) + xi) inside = !inside;
-  }
-  return inside;
-}
-function distToSeg(p, a, b) {
-  const dx = b[0] - a[0], dy = b[1] - a[1], l2 = dx * dx + dy * dy;
-  const t = l2 ? Math.max(0, Math.min(1, ((p[0] - a[0]) * dx + (p[1] - a[1]) * dy) / l2)) : 0;
-  return Math.hypot(p[0] - a[0] - t * dx, p[1] - a[1] - t * dy);
-}
-function tap(e, target) {
-  if (mode && (mode.kind === 'zone' || mode.kind === 'line' || mode.kind === 'curve')) {
-    const r = vp.getBoundingClientRect();
-    const sx = e.clientX - r.left, sy = e.clientY - r.top;
-    const w = [(sx - view.ox) / view.s, (sy - view.oy) / view.s];
-    if (w[0] < 0 || w[1] < 0 || w[0] > MAP || w[1] > MAP) return;
-    if (mode.kind === 'zone' && draft.length >= 3) {
-      const f = [view.ox + draft[0][0] * view.s, view.oy + draft[0][1] * view.s];
-      if ((f[0] - sx) ** 2 + (f[1] - sy) ** 2 <= SNAP_PX * SNAP_PX) { finishDraft(); return; }   // 시작 지점과 이어짐 → 완료
-    }
-    if (mode.kind === 'curve') {
-      const c = snapCenter(w);                                                              // 누른 칸의 정중앙에 찍힌다 (기존 도로 칸이면 그 칸 중앙에서 이어짐)
-      if (draft.some(p => p[0] === c[0] && p[1] === c[1])) return;                          // 이미 찍은 칸이면 무시 (길이 0 곡선 방지)
-      w[0] = c[0]; w[1] = c[1];
-    }
-    draft.push(w); lastPt = w; redoStack = []; curveHover = null;       // 구역은 이어지지 않으면 n번째 지점으로 계속, 경계선은 완료 버튼으로 끝냄
-    if (mode.kind === 'curve' && draft.length === 3) { finishDraft(); return; }   // 곡선은 세 번째(도착) 지점에서 바로 완성
-    render();
+  const url = $('urlInput').value.trim();
+  if (!url) return;
+  if (/youtube\.com|youtu\.be|instagram\.com|tiktok\.com|vimeo\.com/i.test(url)) {
+    msg($('loadMsg'), '스트리밍 사이트 페이지 주소는 직접 불러올 수 없습니다. 영상 파일(.mp4 등) 직접 링크를 넣거나 파일을 올려주세요.', true);
     return;
   }
-  if (mode && mode.kind === 'road') {                 // 도로 추가: 첫 칸을 누르면 한 칸 생성, 이후 핸들로 확장
-    const t = tileAt(e.clientX, e.clientY);
-    if (!t) return;
-    if (roadSel) {                                    // 이미 시작한 뒤: 도로 칸이면 그 칸 선택, 아니면 종료
-      if (hasAnyRoad(t.x, t.y)) roadSel = { a: [t.x, t.y], kind: 'add' }; else { roadSel = null; setMode(null); return; }
-      render(); return;
-    }
-    const lay = layerOf('road'); lay.show = true;
-    if (!lay.cells.some(c => c[0] === t.x && c[1] === t.y)) lay.cells.push([t.x, t.y]);
-    roadSel = { a: [t.x, t.y], kind: 'add' }; saveLayers(); renderLayerList(); render();
-    return;
-  }
-  if (mode && mode.kind === 'roadedit') {             // 도로 수정: 도로가 아닌 칸에서도 시작할 수 있다
-    const t = tileAt(e.clientX, e.clientY);
-    closePalette();
-    if (roadSel && roadSel.naming && t) {             // 도로명 지정 중: 선택 범위 안의 도로 칸에서만 반응
-      const r = roadSel.rect;
-      if (t.x >= r.x0 && t.x <= r.x1 && t.y >= r.y0 && t.y <= r.y1) { openNameBox(t.x, t.y); return; }
-    }
-    // 건물이나 도로가 없는 칸(또는 지도 밖)을 누르면 수정이 취소된다. 도로 칸을 누르면 그 칸에서 새로 시작한다.
-    if (!t || (target.closest && target.closest('.unit')) || !hasAnyRoad(t.x, t.y)) { setMode(null); return; }   // 빈 칸/건물을 누르면 수정 취소, 도로 칸이면 그 칸에서 새로 시작
-    roadSel = { kind: 'edit', rect: { x0: t.x, y0: t.y, x1: t.x, y1: t.y }, last: [t.x, t.y] };
-    render();
-    return;
-  }
-  if (mode) {
-    const t = tileAt(e.clientX, e.clientY);
-    if (!t) return;
-    if (unitAtTile(t.x, t.y, mode.id)) return;      // 이미 부대가 있는 타일은 무시
-    const u = { id: nid(), name: '새 부대', x: t.x, y: t.y, type: 'inf', ech: 'II', subs: [] };
-    units.push(u);
-    setMode(null); save(); syncUnits(); openSheet(u.id, true);
-    return;
-  }
-  const el = target.closest && target.closest('.unit');
-  if (el) { roadSel = null; openSheet(el.dataset.id); render(); return; }
-  const t = tileAt(e.clientX, e.clientY);
-  if (!t || selectedId !== null) { closeSheet(); return; }                          // 지도 밖이거나 부대 메뉴가 열려 있으면 메뉴만 닫는다
-  setMode({ kind: 'roadedit' });                                                    // 건물이 아닌 칸(도로/빈 칸)을 누르면 통합 수정: 범위 지정, 색상, 도로명, 도로 만들기/지우기
-  roadSel = { kind: 'edit', rect: { x0: t.x, y0: t.y, x1: t.x, y1: t.y }, last: [t.x, t.y] };
-  render();
-}
-
-// ---------- 모드 배너 ----------
-function setMode(m) {
-  if (mode && (mode.kind === 'road' || mode.kind === 'roadedit') && !(m && m.kind === mode.kind)) roadSel = null;
-  closePalette(); hideNameBox();
-  curveHover = null;
-  const drawing = k => k && (k.kind === 'zone' || k.kind === 'line' || k.kind === 'curve');
-  if (drawing(mode) && (!m || m.kind !== mode.kind)) { draft = null; redoStack = []; lastPt = null; }   // 작성 중이던 구역/경계선은 취소
-  mode = m;
-  $('add').classList.toggle('active', !!m && m.kind === 'add');
-  render();
-}
-
-// 작성 중인 구역/경계선을 레이어로 확정
-function finishDraft() {
-  if (!mode || !draft) return;
-  const type = mode.kind;
-  if (draft.length < (type === 'zone' ? 3 : type === 'curve' ? 3 : 2)) return;
-  if (type === 'curve') { const lay = layerOf('road'); lay.curves.push(draft.map(p => p.slice())); lay.show = true; }
-  else { const lay = layerOf(type); lay.items.push(draft); lay.show = true; }
-  draft = null; saveLayers(); renderLayerList(); setMode(null);
-}
-
-// 작성 중 마지막 지점 옆에 뜨는 HUD: 취소(X) · [완료(✓), 경계선만] · 이전(←) · 다시(→)
-function placeZoneHud() {
-  const delSel = !!(mode && mode.kind === 'roadedit' && roadSel && roadSel.kind === 'edit');
-  const pt = delSel ? [(roadSel.last[0] + 0.5) * TILE, (roadSel.last[1] + 0.5) * TILE] : lastPt;       // 삭제 모드는 마지막 선택 칸 옆
-  const hud = $('zoneHud'), on = delSel || !!(mode && (mode.kind === 'zone' || mode.kind === 'line' || mode.kind === 'curve') && lastPt);
-  hud.classList.toggle('on', on);
-  if (!on) return;
-  $('zDone').style.display = mode.kind === 'line' || delSel ? '' : 'none';   // 완료(✓)는 경계선과 도로 수정(범위 내 도로 삭제 적용)에서만
-  $('zUndo').style.display = $('zRedo').style.display = delSel ? 'none' : '';   // 도로 수정에는 이전/다시가 없다
-  $('zCancel').style.display = delSel ? 'none' : '';                           // 도로 수정에는 취소 버튼이 없다 (빈 칸/건물을 누르면 취소)
-  $('zDone').classList.toggle('asx', delSel); $('zDone').setAttribute('aria-label', delSel ? '범위 내 도로 삭제' : '완료');   // 도로 수정의 적용 버튼은 X 아이콘
-  // 선택한 범위에 도로가 없으면 도로 관련 버튼(지우개, 색상, 도로명)은 숨기고 + 만 보인다
-  let hasR = false;
-  if (delSel) {
-    const { x0, y0, x1, y1 } = roadSel.rect, lay = roadLayer(), inR = (cx, cy) => cx >= x0 && cx <= x1 && cy >= y0 && cy <= y1;
-    hasR = !!lay && (lay.cells.some(c => inR(c[0], c[1])) || lay.curves.some(c => [...curveCells(c)].some(k => { const [cx, cy] = k.split(',').map(Number); return inR(cx, cy); })));
-    if (!hasR) { closePalette(); if (roadSel.naming) { roadSel.naming = false; hideNameBox(); } }
-  }
-  $('zDone').style.display = delSel ? (hasR ? '' : 'none') : $('zDone').style.display;
-  $('zPalWrap').style.display = $('zPen').style.display = delSel && hasR ? '' : 'none';
-  $('zPlus').style.display = delSel ? '' : 'none';   // 색상 팔레트와 도로명은 도로 수정에서만
-  $('zPen').classList.toggle('on', delSel && !!roadSel.naming);
-  $('zDone').disabled = delSel ? false : !(draft && draft.length >= 2);
-  $('zUndo').disabled = !(draft && draft.length);
-  $('zRedo').disabled = !redoStack.length;
-  const r = vp.getBoundingClientRect();
-  let x = r.left + view.ox + pt[0] * view.s + 14, y = r.top + view.oy + pt[1] * view.s - 15;
-  if (lastPtrType === 'touch') {
-    // 터치 화면: 손가락이 가리는 지도 위에 HUD를 두면 다음 지점을 누를 때 HUD 버튼(취소 등)이 눌려 동작이 취소되므로, 지점과 떨어진 화면 위쪽 가운데에 고정한다.
-    // 마지막 지점이 그 근처면 아래쪽 가운데로 옮긴다.
-    const hw = hud.offsetWidth || 102, px = r.left + view.ox + pt[0] * view.s, py = r.top + view.oy + pt[1] * view.s;
-    let fx = r.left + (r.width - hw) / 2, fy = r.top + 62;
-    if (Math.abs(py - (fy + 15)) < 70 && px > fx - 30 && px < fx + hw + 30) fy = r.bottom - 120;
-    hud.style.left = fx + 'px'; hud.style.top = fy + 'px';
-    return;
-  }
-  const w = hud.offsetWidth || (delSel ? (hasR ? 138 : 30) : mode.kind === 'line' ? 138 : 102);
-  if (x + w > r.right - 6) x = r.left + view.ox + pt[0] * view.s - 14 - w;            // 오른쪽 공간이 모자라면 왼쪽으로
-  y = Math.max(r.top + 56, Math.min(r.bottom - (delSel ? 130 : 40), y));
-  hud.style.left = Math.max(6, x) + 'px'; hud.style.top = y + 'px';
-}
-$('zCancel').onclick = () => setMode(null);
-$('zDone').onclick = () => (mode && mode.kind === 'roadedit' ? applyRoadDelete() : finishDraft());
-// 도로 수정 HUD: 색상 팔레트(아래로 4배 길어짐)와 도로명(연필)
-const closePalette = () => $('zPalWrap').classList.remove('open');
-$('zPal').onclick = () => $('zPalWrap').classList.toggle('open');
-$('zPalWrap').addEventListener('click', e => { const c = e.target.closest('.pc'); if (c) { applyRoadColor(Number(c.dataset.col)); closePalette(); } });
-$('zPlus').onclick = () => { closePalette(); hideNameBox(); if (roadSel) roadSel.naming = false; applyRoadFill(); };
-$('zPen').onclick = () => { if (!roadSel || roadSel.kind !== 'edit') return; closePalette(); hideNameBox(); roadSel.naming = !roadSel.naming; render(); };
-$('zUndo').onclick = () => {
-  if (!draft || !draft.length) return;
-  curveHover = null;
-  redoStack.push(draft.pop());
-  if (draft.length) lastPt = draft[draft.length - 1];     // HUD는 남은 마지막 지점 옆으로
-  render();
-};
-$('zRedo').onclick = () => {
-  if (!redoStack.length) return;
-  const p = redoStack.pop(); draft.push(p); lastPt = p;
-  render();
-};
-$('add').onclick = () => { closeSheet(); setMode(mode && mode.kind === 'add' ? null : { kind: 'add' }); };   // 다시 누르면 취소
-
-// 레이어 컨트롤
-// 레이어 패널 (포토샵식): '=' 잡는 곳을 끌어 위아래 층 변경, 체크박스로 보이기/숨기기. 필드는 최하위 고정이며 숨길 수 없다.
-// 유형(구역, 경계선, 지형, 필드)은 고정이고, 그 오른쪽에 사용자 지정 이름을 제자리에서 입력한다 (중복 가능).
-const GRIP = '<svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M2 5h10M2 9h10"/></svg>';
-function renderLayerList() {
-  const cname = (id, name) => `<span class="cname" contenteditable="plaintext-only" data-id="${id}" data-ph="사용자 지정 이름">${esc(name)}</span>`;
-  $('layerList').innerHTML = layers.list.map(l =>
-    `<div class="lrow" data-id="${l.id}"><span class="grip" aria-label="순서 변경">${GRIP}</span>` +
-    `<span class="ltext"><b class="ltype">${layerLabel(l)}</b> ${cname(l.id, l.name)}</span>` +
-    (l.type === 'zone' || l.type === 'line' ? `<button class="btn primary sm ldel" data-del="${l.id}">삭제</button>` : '') +        // 통합 레이어째 삭제 (도로는 도로 섹션의 삭제하기)
-    `<input type="checkbox" data-id="${l.id}" ${l.show ? 'checked' : ''}></div>`).join('') +
-    `<div class="lrow fixed"><span class="grip">${GRIP}</span><span class="ltext"><b class="ltype">필드</b> ${cname('field', layers.fieldName)}</span><input type="checkbox" checked disabled></div>`;
-}
-const syncLayerChecks = renderLayerList;
-renderLayerList();
-$('layerList').addEventListener('change', e => {
-  const l = layers.list.find(x => x.id === (e.target.dataset && e.target.dataset.id)); if (!l) return;
-  l.show = e.target.checked; saveLayers(); render();
+  loadSource(url, false);
 });
-$('layerList').addEventListener('click', e => {
-  const b = e.target.closest('[data-del]'); if (!b || b.disabled) return;
-  const l = layers.list.find(x => x.id === b.dataset.del); if (!l) return;
-  askConfirm('데이터가 영구적으로 삭제됩니다', () => { layers.list = layers.list.filter(x => x !== l); saveLayers(); renderLayerList(); render(); });
-});
-$('layerList').addEventListener('input', e => {
-  const el = e.target; if (!el.classList.contains('cname')) return;
-  const v = el.textContent.slice(0, 24);
-  if (el.dataset.id === 'field') layers.fieldName = v;
-  else { const l = layers.list.find(x => x.id === el.dataset.id); if (l) l.name = v; }
-  saveLayers();
-});
-$('layerList').addEventListener('keydown', e => { if (e.key === 'Enter' && e.target.classList.contains('cname')) { e.preventDefault(); e.target.blur(); } });
-(() => {
-  const list = $('layerList');
-  let d = null;
-  list.addEventListener('pointerdown', e => {
-    const grip = e.target.closest('.grip'), row = grip && grip.closest('.lrow');
-    if (!row || row.classList.contains('fixed')) return;
-    const rows = [...list.querySelectorAll('.lrow:not(.fixed)')];
-    const rects = rows.map(r => ({ t: r.offsetTop, h: r.offsetHeight }));
-    const start = rows.indexOf(row);
-    d = { row, rows, rects, start, idx: start, y: e.clientY, pid: e.pointerId };
-    grip.setPointerCapture(e.pointerId);
-    row.classList.add('drag');
-  });
-  list.addEventListener('pointermove', e => {
-    if (!d || e.pointerId !== d.pid) return;
-    const { rects, start, rows } = d, me = rects[start], n = rows.length;
-    const dy = Math.max(rects[0].t - me.t, Math.min(rects[n - 1].t + rects[n - 1].h - me.t - me.h, e.clientY - d.y));   // 필드 아래/목록 밖으로는 못 감
-    d.row.style.transform = `translateY(${dy}px)`;
-    const c = me.t + me.h / 2 + dy;
-    let idx = start;
-    for (let j = start + 1; j < n; j++) if (rects[j].t + rects[j].h / 2 < c) idx = j;
-    for (let j = start - 1; j >= 0; j--) if (rects[j].t + rects[j].h / 2 > c) idx = j;
-    d.idx = idx;
-    const step = me.h + 6;
-    rows.forEach((r, i) => {
-      if (r === d.row) return;
-      const shift = (i > start && i <= idx) ? -step : (i < start && i >= idx) ? step : 0;
-      r.style.transform = shift ? `translateY(${shift}px)` : '';
-    });
-  });
-  const end = e => {
-    if (!d || e.pointerId !== d.pid) return;
-    const from = d.start, to = d.idx; d = null;
-    if (from !== to) { const [it] = layers.list.splice(from, 1); layers.list.splice(to, 0, it); saveLayers(); render(); }
-    renderLayerList();
-  };
-  list.addEventListener('pointerup', end);
-  list.addEventListener('pointercancel', end);
-})();
-// ---------- 도로 ----------
-// 도로는 폭 1칸짜리 선이다 (칸을 가로/세로로만 이어 붙이며 더 넓은 도로는 없다).
-// 도로 칸을 누르면 그 칸의 네 모서리에만 핸들이 뜨고, 핸들을 끄는 방향(가로/세로 중 큰 쪽)으로 그 칸에서부터 칸이 늘어난다.
-// 이미 도로인 칸 쪽으로 끌면 끝에서부터 줄어든다. 삭제하기는 네 모서리 핸들로 (도로가 아닌 곳까지 포함한) 자유로운 사각 범위를 정하고 ✓로 적용한다.
-let roadSel = null;     // { a:[x,y] 기준 칸, kind:'add'|'del', dir:[dx,dy], m: 범위 칸 수(삭제 모드) }
-const roadLayer = () => layers.list.find(l => l.type === 'road');
-const hasRoad = (tx, ty) => { const l = roadLayer(); return !!(l && l.show && l.cells.some(c => c[0] === tx && c[1] === ty)); };      // 칸 도로
-const hasAnyRoad = (tx, ty) => hasRoad(tx, ty) || (() => { const l = roadLayer(); return !!(l && l.show && l.curves.some(c => curveCells(c).has(tx + ',' + ty))); })();   // 곡선 도로 포함
-$('roadAdd').onclick = () => { roadSel = null; setSidebar(false); closeSheet(); setMode({ kind: 'road' }); };
 
-const selBox = () => {                     // 선택 영역(칸 단위 bbox)
-  if (!roadSel) return null;
-  if (roadSel.kind === 'add') return { x0: roadSel.a[0], y0: roadSel.a[1], x1: roadSel.a[0], y1: roadSel.a[1] };
-  return roadSel.rect;                                  // 삭제 범위는 도로 여부와 무관한 자유로운 사각 범위
-};
-function placeRoadHandles() {
-  const box = $('roadHandles'), b = selBox();
-  box.classList.toggle('on', !!b);
-  box.classList.toggle('del', !!roadSel && roadSel.kind === 'edit');
-  box.classList.toggle('naming', !!roadSel && !!roadSel.naming);          // 도로명 지정 중에는 범위가 고정되어 핸들이 터치를 가로채지 않는다
-  if (!b) return;
-  const tp = TILE * view.s, vr = vp.getBoundingClientRect();
-  const pos = { tl: [b.x0, b.y0], tr: [b.x1 + 1, b.y0], bl: [b.x0, b.y1 + 1], br: [b.x1 + 1, b.y1 + 1] };
-  box.querySelectorAll('.rh').forEach(h => {
-    const [cx, cy] = pos[h.dataset.c];
-    h.style.left = (vr.left + view.ox + cx * tp) + 'px'; h.style.top = (vr.top + view.oy + cy * tp) + 'px';
-  });
+function useFile(file) {
+  if (!file || !file.type.startsWith('video/')) { msg($('loadMsg'), '영상 파일을 선택해주세요.', true); return; }
+  if (objectUrl) URL.revokeObjectURL(objectUrl);
+  objectUrl = URL.createObjectURL(file);
+  $('dlLink').download = file.name.replace(/\.[^.]+$/, '') + '.gif';
+  loadSource(objectUrl, true);
 }
-function drawRoadSelection() {
-  const b = selBox(); if (!b) return;
-  const { s, ox, oy } = view, tp = TILE * s, del = roadSel.kind === 'edit';
-  ctx.save();
-  if (del) { ctx.fillStyle = 'rgba(95,160,245,.15)'; ctx.fillRect(ox + b.x0 * tp, oy + b.y0 * tp, (b.x1 - b.x0 + 1) * tp, (b.y1 - b.y0 + 1) * tp); }
-  ctx.setLineDash(del ? [] : [5, 4]); ctx.lineWidth = del ? 2 : 1.5; ctx.strokeStyle = del ? 'rgba(95,160,245,.95)' : '#2d6cdf';
-  ctx.strokeRect(ox + b.x0 * tp, oy + b.y0 * tp, (b.x1 - b.x0 + 1) * tp, (b.y1 - b.y0 + 1) * tp);
-  ctx.restore();
-}
-// 핸들을 잡은 지점에서 끈 거리(칸 단위)로 방향(가로/세로 중 큰 쪽)과 칸 수를 정한다 (도로 추가용). 이웃 칸으로 65% 이상 끌면 한 칸으로 친다.
-const roomFrom = (a, dir) => dir[0] ? (dir[0] > 0 ? N - 1 - a[0] : a[0]) : (dir[1] > 0 ? N - 1 - a[1] : a[1]);
-function aimFrom(e, d) {
-  const tp = TILE * view.s, du = (e.clientX - d.x0) / tp, dv = (e.clientY - d.y0) / tp;
-  const step = v => (v >= 0 ? 1 : -1) * Math.floor(Math.abs(v) + 0.35);
-  const horiz = Math.abs(du) >= Math.abs(dv), major = horiz ? du : dv, sg = major < 0 ? -1 : 1;
-  const dir = horiz ? [sg, 0] : [0, sg];
-  return { dir, m: Math.max(0, Math.min(roomFrom(d.a, dir), Math.floor(Math.abs(major) + 0.35))) };
-}
-(() => {
-  const box = $('roadHandles');
-  let d = null;
-  box.addEventListener('pointerdown', e => {
-    const h = e.target.closest('.rh'); if (!h || !roadSel) return;
-    const lay = roadLayer();
-    const tp = TILE * view.s, c = h.dataset.c, b = selBox();
-    const cx = c === 'tl' || c === 'bl' ? b.x0 : b.x1 + 1, cy = c === 'tl' || c === 'tr' ? b.y0 : b.y1 + 1;
-    d = { h, c, pid: e.pointerId, a: roadSel.a && roadSel.a.slice(), x0: e.clientX, y0: e.clientY, base: lay ? lay.cells.map(q => q.slice()) : [], baseLinks: lay ? (lay.links || []).slice() : [],
-          offX: (e.clientX - view.ox) / tp - cx, offY: (e.clientY - view.oy) / tp - cy };      // 잡은 지점과 모서리의 간격
-    h.setPointerCapture(e.pointerId);
-    e.stopPropagation();
-  });
-  box.addEventListener('pointermove', e => {
-    if (!d || e.pointerId !== d.pid || !roadSel) return;
-    if (roadSel.kind === 'edit') {                                   // 수정 범위: 모서리를 놓은 격자 위치로 사각 범위를 자유롭게 늘리고 줄인다 (도로가 아닌 칸도 포함 가능)
-      const tp = TILE * view.s, rc = roadSel.rect, c = d.c, clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
-      const gx = Math.round((e.clientX - view.ox) / tp - d.offX), gy = Math.round((e.clientY - view.oy) / tp - d.offY);
-      if (c === 'tl' || c === 'bl') rc.x0 = clamp(gx, 0, rc.x1); else rc.x1 = clamp(gx - 1, rc.x0, N - 1);
-      if (c === 'tl' || c === 'tr') rc.y0 = clamp(gy, 0, rc.y1); else rc.y1 = clamp(gy - 1, rc.y0, N - 1);
-      roadSel.last = [c === 'tl' || c === 'bl' ? rc.x0 : rc.x1, c === 'tl' || c === 'tr' ? rc.y0 : rc.y1];   // 마지막으로 만진 모서리의 칸
-      render(); return;
-    }
-    const { dir, m } = aimFrom(e, d);
-    // 도로 추가/줄이기: 기준 칸 d.a에서 dir 방향으로 m칸
-    const key = c => c[0] + ',' + c[1], baseSet = new Set(d.base.map(key));
-    const seq = k => [d.a[0] + dir[0] * k, d.a[1] + dir[1] * k];
-    let cells = d.base.map(c => c.slice()), sel = d.a; const links = new Set(d.baseLinks);
-    if (m > 0) {
-      if (baseSet.has(key(seq(1)))) {                                  // 도로 쪽으로 끌면 줄어든다: 기준 칸부터 m칸 제거
-        const gone = new Set(); for (let k = 0; k < m; k++) gone.add(key(seq(k)));
-        cells = cells.filter(c => !gone.has(key(c)));
-        sel = seq(m);
-      } else {                                                         // 빈 쪽으로 끌면 늘어난다
-        if (!baseSet.has(key(d.a))) cells.push(d.a.slice());                // 곡선 위 칸에서 시작한 직선 도로는 시작 칸도 도로 칸이 된다
-        for (let k = 1; k <= m; k++) { const c = seq(k); if (!baseSet.has(key(c))) cells.push(c); }
-        for (let k = 0; k < m; k++) links.add(linkKey(...seq(k), ...seq(k + 1)));     // 늘린 방향으로만 이어진다
-        sel = seq(m);
-      }
-    }
-    const lay = layerOf('road'); lay.cells = cells; lay.links = [...links]; pruneLinks(lay); lay.show = true; dropIfEmpty(lay);
-    roadSel.a = (cells.length || m === 0) ? sel : null;
-    if (!cells.length && m > 0) roadSel = null;                         // 줄여서 칸이 모두 사라진 경우에만 선택 해제
-    render();
-  });
-  const end = e => {
-    if (!d || e.pointerId !== d.pid) return; d = null;
-    if (roadSel && roadSel.kind === 'add' && roadSel.a && !hasAnyRoad(roadSel.a[0], roadSel.a[1])) {   // 줄인 뒤 기준 칸이 도로가 아니면 끝 칸으로 옮긴다
-      const lay = roadLayer(); roadSel = lay && lay.cells.length ? { a: lay.cells[lay.cells.length - 1].slice(), kind: 'add' } : null;
-    }
-    saveLayers(); renderLayerList(); render();
-  };
-  box.addEventListener('pointerup', end);
-  box.addEventListener('pointercancel', end);
-})();
-// 삭제 모드 ✓: 선택한 범위의 도로 칸을 지운다
-function applyRoadDelete() {
-  if (!roadSel || roadSel.kind !== 'edit') return;
-  const { x0, y0, x1, y1 } = roadSel.rect, lay = roadLayer();
-  if (lay) {
-    lay.cells = lay.cells.filter(c => !(c[0] >= x0 && c[0] <= x1 && c[1] >= y0 && c[1] <= y1));
-    lay.curves = lay.curves.filter(c => ![...curveCells(c)].some(k => { const [cx, cy] = k.split(',').map(Number); return cx >= x0 && cx <= x1 && cy >= y0 && cy <= y1; }));   // 범위를 지나는 곡선 도로도 삭제
-    pruneLinks(lay);
-    const set = roadSet(lay);
-    lay.names = (lay.names || []).filter(n => set.has(n.x + ',' + n.y));              // 지워진 도로의 도로명도 함께 삭제
-    dropIfEmpty(lay);
+$('fileInput').addEventListener('change', (e) => useFile(e.target.files[0]));
+const drop = $('drop');
+['dragenter', 'dragover'].forEach(ev => drop.addEventListener(ev, (e) => { e.preventDefault(); drop.classList.add('over'); }));
+['dragleave', 'drop'].forEach(ev => drop.addEventListener(ev, (e) => { e.preventDefault(); drop.classList.remove('over'); }));
+drop.addEventListener('drop', (e) => useFile(e.dataTransfer.files[0]));
+
+video.addEventListener('loadedmetadata', () => {
+  duration = video.duration;
+  if (!isFinite(duration) || duration <= 0) { msg($('loadMsg'), '영상 길이를 알 수 없습니다.', true); return; }
+  selStart = 0;
+  selEnd = Math.min(duration, 3);
+  $('durLabel').textContent = fmt(duration);
+  $('editor').classList.remove('hidden');
+  msg($('loadMsg'), `불러오기 완료 · ${video.videoWidth}×${video.videoHeight} · ${fmt(duration)}`);
+  if (!video.src.startsWith('blob:')) {
+    try { $('dlLink').download = (new URL(video.src).pathname.split('/').pop() || 'clip').replace(/\.[^.]+$/, '') + '.gif'; } catch {}
   }
-  roadSel = null; saveLayers(); renderLayerList(); setMode(null);
-}
-
-// +: 지정한 범위에 도로를 만든다. 가로가 더 길면(같으면) 가로 도로로 줄마다 따로, 세로가 더 길면 세로 도로로 줄마다 따로 이어진다
-// (5x1은 한 줄, 5x2는 서로 이어지지 않는 두 줄 — 줄 사이는 자동으로 연결되지 않는다)
-function applyRoadFill() {
-  if (!roadSel || roadSel.kind !== 'edit') return;
-  const { x0, y0, x1, y1 } = roadSel.rect, lay = layerOf('road'), set = roadSet(lay), links = new Set(lay.links || []);
-  const horiz = (x1 - x0) >= (y1 - y0);
-  for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) {
-    if (!set.has(x + ',' + y)) { lay.cells.push([x, y]); set.add(x + ',' + y); }
-    if (horiz && x < x1) links.add(x + ',' + y + ',h');
-    if (!horiz && y < y1) links.add(x + ',' + y + ',v');
-  }
-  lay.links = [...links]; pruneLinks(lay); lay.show = true;
-  saveLayers(); renderLayerList(); render();
-}
-
-// 팔레트: 선택한 범위 안의 모든 도로를 지정한 색으로 (곡선은 범위를 지나면 통째로)
-function applyRoadColor(col) {
-  if (!roadSel || roadSel.kind !== 'edit') return;
-  const { x0, y0, x1, y1 } = roadSel.rect, lay = roadLayer(); if (!lay) return;
-  lay.cells.forEach(c => { if (c[0] >= x0 && c[0] <= x1 && c[1] >= y0 && c[1] <= y1) c[2] = col; });
-  lay.curves.forEach(c => { if ([...curveCells(c)].some(k => { const [cx, cy] = k.split(',').map(Number); return cx >= x0 && cx <= x1 && cy >= y0 && cy <= y1; })) c[3] = col; });
-  saveLayers(); render();
-}
-
-// 도로명 입력란: 팝업 없이 해당 칸 위에 바로 뜨고, 엔터나 포커스를 잃으면 확정된다
-let nameCell = null;
-function hideNameBox() { const b = $('roadNameBox'); if (b) b.classList.remove('on'); nameCell = null; }
-function openNameBox(x, y) {
-  const lay = roadLayer(); if (!lay) return;
-  const set = roadSet(lay), o = nameOrientation(new Set(lay.links || []), x, y);
-  if (!set.has(x + ',' + y) || !o) { roadSel.naming = false; render(); return; }   // 도로가 아니거나 1x1이면 공간이 부족하므로 동작을 취소한다
-  nameCell = { x, y, o };
-  const ex = (lay.names || []).find(n => n.x === x && n.y === y), box = $('roadNameBox'), inp = $('roadNameInput');
-  inp.value = ex ? ex.t : '';
-  const r = vp.getBoundingClientRect(), tp = TILE * view.s;
-  box.classList.add('on');
-  const bw = box.offsetWidth || 190;
-  box.style.left = Math.max(6, Math.min(r.right - bw - 6, r.left + view.ox + (x + 0.5) * tp - bw / 2)) + 'px';
-  box.style.top = Math.max(r.top + 56, r.top + view.oy + (y + 0.5) * tp - 20) + 'px';
-  inp.focus();
-}
-(() => {
-  const inp = $('roadNameInput');
-  const commit = () => {
-    if (!nameCell) return;
-    const lay = roadLayer(), t = inp.value.trim().slice(0, 14);
-    if (lay) {
-      lay.names = (lay.names || []).filter(n => !(n.x === nameCell.x && n.y === nameCell.y));
-      if (t) lay.names.push({ x: nameCell.x, y: nameCell.y, o: nameCell.o, t });
-    }
-    saveLayers(); render();
-  };
-  inp.addEventListener('input', commit);                                // 입력하는 대로 도로에 바로 반영
-  inp.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); inp.blur(); } });
-  inp.addEventListener('blur', () => { commit(); hideNameBox(); if (roadSel) roadSel.naming = false; render(); });
-})();
-
-const startDraw = kind => { draft = []; redoStack = []; lastPt = null; setSidebar(false); closeSheet(); setMode({ kind }); };
-$('zoneAdd').onclick = () => startDraw('zone');
-$('roadCurve').onclick = () => startDraw('curve');
-// 곡선 도로 미리보기: 시작, 조절점을 찍은 뒤 마우스를 움직이면 도착 지점에 따른 곡선이 보인다
-vp.addEventListener('pointermove', e => {
-  if (!(mode && mode.kind === 'curve' && draft && draft.length === 2) || e.pointerType !== 'mouse' || ptrs.size) return;
-  const r = vp.getBoundingClientRect();
-  const w = [(e.clientX - r.left - view.ox) / view.s, (e.clientY - r.top - view.oy) / view.s];
-  if (w[0] < 0 || w[1] < 0 || w[0] > MAP || w[1] > MAP) return;
-  curveHover = snapCenter(w);
   render();
 });
-$('lineAdd').onclick = () => startDraw('line');
-$('fit').onclick = fit;
-
-// ---------- 사이드바 (지형 생성) ----------
-function setSidebar(open) {
-  if (open) { closeSheet(); if (mode) setMode(null); }
-  $('sidebar').classList.toggle('open', open);
-  $('sidebar').setAttribute('aria-hidden', String(!open));
-  $('scrim').classList.toggle('on', open);
-}
-$('menu').onclick = () => setSidebar(!$('sidebar').classList.contains('open'));
-$('scrim').onclick = () => setSidebar(false);
-const syncRatio = () => {
-  const m = Number($('mtnRatio').value);
-  $('rPlain').textContent = 100 - m; $('rMtn').textContent = m;
-};
-if (terrainCfg) { $('mtnRatio').value = Math.min(95, Math.round(terrainCfg.ratio * 100)); $('highMtn').checked = !!terrainCfg.high; }
-syncRatio();
-$('mtnRatio').addEventListener('input', syncRatio);
-// ---------- 확인 팝업 (제목 '경고', 필드 크기 변경과 부대 삭제가 공용) ----------
-let confirmFn = null;
-function askConfirm(text, fn) {
-  confirmFn = fn;
-  $('cfText').textContent = text;
-  $('confirmWrap').classList.add('on');
-}
-$('cfCancel').onclick = () => { confirmFn = null; $('confirmWrap').classList.remove('on'); };
-$('cfOk').onclick = () => { const f = confirmFn; confirmFn = null; $('confirmWrap').classList.remove('on'); if (f) f(); };
-
-// ---------- 맵 크기 ----------
-const syncSizes = () => $('mapSizes').querySelectorAll('[data-n]').forEach(b => b.classList.toggle('on', Number(b.dataset.n) === N));
-syncSizes();
-$('mapSizes').addEventListener('click', e => {
-  const b = e.target.closest('[data-n]');
-  if (!b || Number(b.dataset.n) === N) return;
-  const n = Number(b.dataset.n);
-  askConfirm('필드 크기를 수정하면 모든 데이터가 초기화됩니다', () => applyMapSize(n));
+video.addEventListener('error', () => {
+  if (video.crossOrigin && video.src && !video.src.startsWith('blob:')) {
+    msg($('loadMsg'), '영상을 불러오지 못했습니다. 주소가 영상 파일 직접 링크인지 확인하세요. 해당 서버가 외부 접근(CORS)을 허용하지 않으면 파일을 내려받아 위에 올려주세요.', true);
+  } else {
+    msg($('loadMsg'), '이 영상 형식은 브라우저에서 재생할 수 없습니다.', true);
+  }
 });
-function applyMapSize(n) {
-  // 맵 크기 변경 → 부대/지형/구역 데이터 모두 초기화
-  N = n; MAP = TILE * N;
-  setTerrainGrid();
-  units = []; terrainCfg = null; terrain = null; selectedId = null;
-  layers = defaultLayers(); saveLayers(); renderLayerList(); setMode(null);
-  try { localStorage.setItem(MKEY, JSON.stringify(N)); localStorage.removeItem(TKEY); } catch (e) {}
-  $('highMtn').checked = false;
-  save(); closeSheet(); syncUnits();
-  $('mtnRatio').value = 30; syncRatio(); syncSizes();
-  setSidebar(false);
-  fit();
-}
 
-$('applyTerrain').onclick = () => {
-  // 건물 데이터는 그대로 두고 지형만 새로 생성
-  terrainCfg = { seed: (Math.random() * 2 ** 31) | 0, ratio: Math.min(95, Number($('mtnRatio').value)) / 100, high: $('highMtn').checked };
-  try { localStorage.setItem(TKEY, JSON.stringify(terrainCfg)); } catch (e) {}
-  terrain = buildTerrain(terrainCfg);
-  syncTerrainLayer(); saveLayers(); renderLayerList();
+/* ---------- selection / timeline ---------- */
+function clampSel() {
+  selStart = Math.max(0, Math.min(selStart, duration));
+  selEnd = Math.max(0, Math.min(selEnd, duration));
+  if (selEnd < selStart + 0.1) selEnd = Math.min(duration, selStart + 0.1);
+  if (selEnd - selStart > MAX_CLIP) selEnd = selStart + MAX_CLIP;
+}
+function render() {
+  clampSel();
+  const p = (t) => (duration ? (t / duration) * 100 : 0) + '%';
+  $('hStart').style.left = p(selStart);
+  $('hEnd').style.left = p(selEnd);
+  $('rangeBar').style.left = p(selStart);
+  $('rangeBar').style.width = `calc(${p(selEnd)} - ${p(selStart)})`;
+  $('playhead').style.left = p(video.currentTime);
+  const len = selEnd - selStart;
+  $('selInfo').textContent = `${fmt(selStart)} – ${fmt(selEnd)} (${len.toFixed(1)}초)`;
+  if (document.activeElement !== $('startIn')) $('startIn').value = selStart.toFixed(1);
+  if (document.activeElement !== $('endIn')) $('endIn').value = selEnd.toFixed(1);
+  if (document.activeElement !== $('lenIn')) $('lenIn').value = len.toFixed(1);
+  $('startIn').max = $('endIn').max = duration.toFixed(1);
+}
+video.addEventListener('timeupdate', () => {
+  if (previewing && video.currentTime >= selEnd) video.currentTime = selStart;
+  $('playhead').style.left = (video.currentTime / duration) * 100 + '%';
+});
+
+const timeline = $('timeline');
+let drag = null;
+const timeAt = (x) => {
+  const r = timeline.getBoundingClientRect();
+  return Math.max(0, Math.min(1, (x - r.left) / r.width)) * duration;
+};
+timeline.addEventListener('pointerdown', (e) => {
+  if (!duration || busy) return;
+  const t = timeAt(e.clientX);
+  if (e.target.id === 'hStart') drag = 'start';
+  else if (e.target.id === 'hEnd') drag = 'end';
+  else if (t > selStart && t < selEnd) drag = { move: t - selStart };
+  else drag = Math.abs(t - selStart) < Math.abs(t - selEnd) ? 'start' : 'end';
+  timeline.setPointerCapture(e.pointerId);
+  onDrag(e);
+});
+timeline.addEventListener('pointermove', (e) => drag && onDrag(e));
+timeline.addEventListener('pointerup', () => { drag = null; });
+timeline.addEventListener('pointercancel', () => { drag = null; });
+function onDrag(e) {
+  const t = timeAt(e.clientX);
+  if (drag === 'start') { selStart = Math.min(t, selEnd - 0.1); seek(selStart); }
+  else if (drag === 'end') { selEnd = Math.max(t, selStart + 0.1); if (selEnd - selStart > MAX_CLIP) selStart = selEnd - MAX_CLIP; seek(selEnd); }
+  else {
+    const len = selEnd - selStart;
+    selStart = Math.max(0, Math.min(duration - len, t - drag.move));
+    selEnd = selStart + len;
+    seek(selStart);
+  }
   render();
-};
-
-// ---------- 하단 모달 ----------
-const byId = id => units.find(u => u.id === id);
-
-let editing = false, picker = false;
-
-function openSheet(id, edit = false) {
-  selectedId = id;
-  editing = edit; picker = false;
-  collapsed = false; $('sheet').style.setProperty('--off', '0px');
-  units.forEach(refreshHud);
-  renderSheet();
-  $('sheet').classList.add('open');
-  $('sheet').setAttribute('aria-hidden', 'false');
 }
-// 접기/펴기: 상단 손잡이를 누르거나 위아래로 끌면 제목열만 남기고 접힌다. 펴진 상태보다 위로는 올라가지 않는다.
-let collapsed = false;
-const sheetEl = $('sheet');
-function collapsedOffset() {
-  const t = $('sheetHead').querySelector('.total');       // 제목열 + 인원(0/0 · 100%) 열까지 보이게
-  if (!t) return 0;
-  const visible = t.getBoundingClientRect().bottom - sheetEl.getBoundingClientRect().top + 10;   // 손잡이 + 제목열 + 인원열 + 하단 여백
-  return Math.max(0, sheetEl.offsetHeight - visible);
+function seek(t) { if (!previewing) video.currentTime = t; }
+
+$('startIn').addEventListener('change', (e) => { selStart = +e.target.value || 0; render(); seek(selStart); });
+$('endIn').addEventListener('change', (e) => { selEnd = +e.target.value || 0; render(); seek(selEnd); });
+$('lenIn').addEventListener('change', (e) => { selEnd = selStart + Math.max(0.1, +e.target.value || 0.1); render(); });
+$('setStart').addEventListener('click', () => { selStart = video.currentTime; if (selEnd <= selStart) selEnd = selStart + 3; render(); });
+$('setEnd').addEventListener('click', () => { selEnd = video.currentTime; if (selEnd <= selStart) selStart = Math.max(0, selEnd - 3); render(); });
+
+$('previewBtn').addEventListener('click', () => {
+  if (previewing) { stopPreview(); return; }
+  previewing = true;
+  $('previewBtn').textContent = '미리보기 정지';
+  video.currentTime = selStart;
+  video.play();
+});
+function stopPreview() {
+  previewing = false;
+  video.pause();
+  $('previewBtn').textContent = '구간 미리보기';
 }
-function setCollapsed(c) {
-  collapsed = c;
-  sheetEl.classList.remove('dragging');
-  sheetEl.style.setProperty('--off', (c ? collapsedOffset() : 0) + 'px');
-}
-(() => {
-  const grab = sheetEl.querySelector('.grab');
-  let g = null;
-  grab.addEventListener('pointerdown', e => {
-    g = { y: e.clientY, base: collapsed ? collapsedOffset() : 0, max: collapsedOffset(), moved: false };
-    grab.setPointerCapture(e.pointerId);
+
+/* ---------- GIF encoding ---------- */
+function seekTo(t) {
+  return new Promise((resolve, reject) => {
+    const done = () => { video.removeEventListener('seeked', done); clearTimeout(timer); resolve(); };
+    const timer = setTimeout(() => { video.removeEventListener('seeked', done); reject(new Error('seek timeout')); }, 15000);
+    video.addEventListener('seeked', done);
+    video.currentTime = t;
   });
-  grab.addEventListener('pointermove', e => {
-    if (!g) return;
-    const dy = e.clientY - g.y;
-    if (!g.moved && Math.abs(dy) < 6) return;
-    g.moved = true;
-    sheetEl.classList.add('dragging');
-    sheetEl.style.setProperty('--off', Math.min(g.max, Math.max(0, g.base + dy)) + 'px');   // 기본 위치보다 위로는 불가
-  });
-  const end = e => {
-    if (!g) return;
-    const d = g, dy = e.clientY - d.y; g = null;
-    if (!d.moved) { setCollapsed(!collapsed); return; }       // 짧게 누르면 토글
-    const pos = Math.min(d.max, Math.max(0, d.base + dy));
-    setCollapsed(pos > d.max * (collapsed ? 0.7 : 0.3));       // 접힌 상태에선 30% 이상 올려야 펴지고, 펴진 상태에선 30% 이상 내리면 접힘
-  };
-  grab.addEventListener('pointerup', end);
-  grab.addEventListener('pointercancel', end);
-})();
-
-function closeSheet() {
-  selectedId = null; editing = false; picker = false;
-  collapsed = false; sheetEl.style.setProperty('--off', '0px'); sheetEl.classList.remove('dragging');
-  $('sheet').classList.remove('open');
-  $('sheet').setAttribute('aria-hidden', 'true');
-  units.forEach(refreshHud);
 }
 
-const blockHTML = s => {
-  const v = (f, ph, cls = '') => `<input data-f="${f}" ${cls ? `class="${cls}"` : ''} placeholder="${ph}" value="${s ? esc(s[f]) : ''}" autocomplete="off" maxlength="${f === 'equip' ? 60 : f === 'name' ? 30 : 7}"${f === 'cur' || f === 'max' ? ' inputmode="numeric"' : ''}>`;
-  return `<div class="block" data-sid="${s ? s.id : 'new'}"><div class="row">${v('name', '이름')}` +
-    `<span class="nums">${v('cur', '인원', 'n')}<span>/</span>${v('max', '', 'n')}</span>` +
-    `${s ? '<button class="btn primary sm" data-a="delsub">삭제</button>' : ''}</div>${v('equip', '장비', 'eqin')}${s ? miniHTML(s) : ''}</div>`;
-};
-const miniHTML = s => { const p = pct(s); return `<div class="mini"><i style="width:${Math.min(100, p)}%;background:${color(p)}"></i></div>`; };
+$('cancelBtn').addEventListener('click', () => { cancelled = true; });
 
-function renderSheet() {
-  const u = byId(selectedId);
-  if (!u) return closeSheet();
-  const t = totals(u);
-  $('sheet').classList.toggle('editing', editing);
-  $('sheetHead').innerHTML =
-    `<div class="title"><span class="nm-edit" ${editing ? 'contenteditable="plaintext-only" data-f="name"' : ''}>${esc(u.name)}</span>` +
-    `<span class="symwrap" data-a="sym">${symbolSVG(u.type, u.ech)}</span>` +
-    `<span class="tacts"><button class="btn primary sm" data-a="editunit">${editing ? '완료' : '수정'}</button>` +
-    `<button class="btn primary sm" data-a="delunit">삭제</button></span>` +
-    (editing && picker ? `<div class="picker">
-      <div class="types">${Object.entries(TYPES).map(([k, l]) => `<button data-a="pick" data-v="${k}" class="${k === u.type ? 'on' : ''}">${symbolSVG(k, '')}<span>${l}</span></button>`).join('')}</div>
-      <div class="echs">${Object.entries(ECHELONS).map(([k, l]) => `<button data-a="ech" data-v="${k}" class="${k === u.ech ? 'on' : ''}">${l}</button>`).join('')}</div></div>` : '') +
-    `</div><div class="total"><span class="cn">(${t.cur}/${t.max})</span> <span class="pv">${pct(t)}%</span></div>`;
-  if (editing && picker) {
-    const title = $('sheetHead').querySelector('.title'), sym = title.querySelector('.symwrap'), pk = title.querySelector('.picker');
-    const tr = title.getBoundingClientRect(), sr = sym.getBoundingClientRect();
-    const right = sr.right - tr.left + 10;
-    if (title.clientWidth - right < W * 0.4) {      // 오른쪽 공간이 화면 가로폭의 40% 미만이면 왼쪽으로 연다
-      pk.style.left = '0px'; pk.style.width = Math.max(0, sr.left - tr.left - 10) + 'px';
-    } else {
-      pk.style.left = right + 'px'; pk.style.width = (title.clientWidth - right) + 'px';
+$('makeBtn').addEventListener('click', async () => {
+  if (busy || !duration) return;
+  stopPreview();
+  busy = true; cancelled = false;
+  $('makeBtn').disabled = $('previewBtn').disabled = true;
+  $('cancelBtn').classList.remove('hidden');
+  const prog = $('progress');
+  prog.classList.remove('hidden'); prog.value = 0;
+
+  const fps = +$('fpsIn').value;
+  const wantW = +$('widthIn').value;
+  const vw = video.videoWidth, vh = video.videoHeight;
+  const w = wantW && wantW < vw ? wantW : vw;
+  const h = Math.max(1, Math.round((vh * w) / vw));
+  const total = Math.min(MAX_FRAMES, Math.max(1, Math.round((selEnd - selStart) * fps)));
+  const delay = Math.round(1000 / fps);
+  const canvas = $('frameCanvas');
+  canvas.width = w; canvas.height = h;
+  const ctx = canvas.getContext('2d', { willReadFrequently: true });
+  const gif = GIFEncoder();
+
+  try {
+    for (let i = 0; i < total; i++) {
+      if (cancelled) throw new Error('cancelled');
+      await seekTo(Math.min(selStart + i / fps, duration - 0.001));
+      ctx.drawImage(video, 0, 0, w, h);
+      const { data } = ctx.getImageData(0, 0, w, h);
+      const palette = quantize(data, 256);
+      const index = applyPalette(data, palette);
+      gif.writeFrame(index, w, h, { palette, delay, repeat: +$('loopIn').value });
+      prog.value = (i + 1) / total;
+      msg($('makeMsg'), `프레임 ${i + 1} / ${total} 변환 중…`);
+      if (i % 4 === 0) await new Promise(r => setTimeout(r));
     }
-  }
-  const subsHTML = editing
-    ? u.subs.map(blockHTML).join('') + blockHTML(null)
-    : (u.subs.length ? u.subs.map(s => `<div class="block"><div class="row v"><b>${esc(s.name)}</b><span class="cnt">(${s.cur}/${s.max})</span></div>` +
-        `${s.equip ? `<div class="eq">${esc(s.equip)}</div>` : ''}${miniHTML(s)}</div>`).join('')
-      : '<div class="block none">편제 부대 없음</div>');
-  $('sheetBody').innerHTML = subsHTML;
-  requestAnimationFrame(updateMore);
-  if (collapsed) requestAnimationFrame(() => setCollapsed(true));   // 제목 줄 수가 바뀌면 접힌 높이도 다시 맞춘다
-}
-
-function updateMore() {
-  const b = $('sheetBody');
-  $('more').classList.toggle('on', b.scrollHeight - b.scrollTop - b.clientHeight > 4);
-}
-$('sheetBody').addEventListener('scroll', updateMore, { passive: true });
-$('more').addEventListener('click', () => $('sheetBody').scrollBy({ top: $('sheetBody').clientHeight * 0.6, behavior: 'smooth' }));
-addEventListener('resize', updateMore);
-
-$('sheet').addEventListener('click', e => {
-  const b = e.target.closest('[data-a]');
-  const u = byId(selectedId);
-  if (!u) return;
-  if (picker && !(b && ['pick', 'ech'].includes(b.dataset.a)) && !e.target.closest('.picker') && !(b && b.dataset.a === 'sym')) { picker = false; renderSheet(); }
-  if (!b) return;
-  const a = b.dataset.a;
-  const sid = b.closest('.block') && b.closest('.block').dataset.sid;
-  if (a === 'delsub') { u.subs = u.subs.filter(x => x.id !== sid); commit(u); }
-  else if (a === 'editunit') { editing = !editing; picker = false; if (collapsed) setCollapsed(false); renderSheet(); }
-  else if (a === 'sym') { if (editing) { picker = !picker; renderSheet(); } }
-  else if (a === 'pick') { u.type = b.dataset.v; picker = false; commit(u); }
-  else if (a === 'ech') { u.ech = b.dataset.v; commit(u); }
-  else if (a === 'delunit') askConfirm('데이터가 영구적으로 삭제됩니다', () => { units = units.filter(x => x.id !== u.id); closeSheet(); save(); syncUnits(); });
-});
-
-// 제목과 편제를 현재 위치에서 실시간 수정 (입력 즉시 자동 저장)
-function syncTotals(u, blk, sub) {
-  const t = totals(u), hd = $('sheetHead');
-  hd.querySelector('.cn').textContent = `(${t.cur}/${t.max})`;
-  hd.querySelector('.pv').textContent = pct(t) + '%';
-  const m = blk && blk.querySelector('.mini');
-  if (m && sub) m.outerHTML = miniHTML(sub);
-}
-
-$('sheet').addEventListener('input', e => {
-  const el = e.target, f = el.dataset && el.dataset.f, u = byId(selectedId);
-  if (!f || !u) return;
-  if (el.tagName !== 'INPUT') {                       // 부대 이름
-    u.name = el.textContent.slice(0, 30);
-    save(); refreshHud(u);
-    return;
-  }
-  const blk = el.closest('.block');
-  let v = el.value;
-  if (f === 'cur' || f === 'max') { v = v.replace(/\D/g, ''); if (v !== el.value) el.value = v; }
-  let sub = u.subs.find(x => x.id === blk.dataset.sid);
-  if (!sub) {                                         // 빈 편성 칸에 첫 입력 → 편제 생성, 새 빈 칸 추가
-    sub = { id: nid(), name: '', cur: 0, max: 0, equip: '' };
-    u.subs.push(sub);
-    blk.dataset.sid = sub.id;
-    blk.querySelector('.row').insertAdjacentHTML('beforeend', '<button class="btn primary sm" data-a="delsub">삭제</button>');
-    blk.insertAdjacentHTML('beforeend', miniHTML(sub));
-    blk.insertAdjacentHTML('afterend', blockHTML(null));
-  }
-  sub[f] = (f === 'cur' || f === 'max') ? num(v) : v;
-  save(); refreshHud(u); syncTotals(u, blk, sub); updateMore();
-});
-$('sheet').addEventListener('keydown', e => {
-  if (e.key === 'Enter' && e.target.dataset && e.target.dataset.f) { e.preventDefault(); e.target.blur(); }
-});
-$('sheet').addEventListener('focusout', e => {
-  const u = byId(selectedId);
-  if (u && e.target.tagName !== 'INPUT' && e.target.dataset && e.target.dataset.f === 'name' && !u.name.trim()) {
-    u.name = '새 부대'; e.target.textContent = u.name; save(); refreshHud(u);
+    gif.finish();
+    const blob = new Blob([gif.bytes()], { type: 'image/gif' });
+    const url = URL.createObjectURL(blob);
+    const old = $('gifImg').src;
+    if (old.startsWith('blob:')) URL.revokeObjectURL(old);
+    $('gifImg').src = url;
+    $('dlLink').href = url;
+    $('gifMeta').textContent = `${w}×${h} · ${total}프레임 · ${fps}fps · ${(selEnd - selStart).toFixed(1)}초 · ${(blob.size / 1024 / 1024).toFixed(2)}MB`;
+    $('result').classList.remove('hidden');
+    msg($('makeMsg'), 'GIF 생성 완료!');
+    $('result').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  } catch (err) {
+    if (err.message === 'cancelled') msg($('makeMsg'), '취소되었습니다.');
+    else if (err.name === 'SecurityError') msg($('makeMsg'), '이 영상 서버가 외부 접근(CORS)을 허용하지 않아 프레임을 읽을 수 없습니다. 파일을 내려받아 올려주세요.', true);
+    else msg($('makeMsg'), '변환 중 오류: ' + err.message, true);
+  } finally {
+    busy = false;
+    $('makeBtn').disabled = $('previewBtn').disabled = false;
+    $('cancelBtn').classList.add('hidden');
+    prog.classList.add('hidden');
+    video.currentTime = selStart;
   }
 });
-
-function commit(u) { save(); refreshHud(u); renderSheet(); }
-
-// ---------- init ----------
-sizeCanvas();
-syncUnits();
-fit();
-})();
 </script>
 </body>
 </html>
